@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>GRE 300+ Vocab</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1e3a8a">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .card-inner {
+      border-radius: 20px;
+      box-shadow: 0 8px 20px rgba(2,6,23,0.08);
+      background: white;
+      padding: 1.25rem;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    .highlight {
+      background: #fde68a;
+      padding: 0 4px;
+      border-radius: 4px;
+    }
+    /* Sidebar overlay */
+    .sidebar {
+      position: fixed;
+      top: 0; right: -300px;
+      width: 300px; height: 100%;
+      background: #fff;
+      box-shadow: -2px 0 8px rgba(0,0,0,0.1);
+      transition: right 0.3s ease;
+      z-index: 50;
+      padding: 1rem;
+      overflow-y: auto;
+    }
+    .sidebar.open { right: 0; }
+    /* Overlay background */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.3);
+      display: none;
+      z-index: 40;
+    }
+    .overlay.show { display: block; }
+  </style>
+</head>
+<body class="bg-gradient-to-tr from-indigo-50 via-white to-slate-50 min-h-screen transition-colors duration-300">
+
+  <!-- Header -->
+  <header class="w-full flex items-center justify-between px-4 py-3 shadow-sm bg-white">
+    <h1 class="text-lg font-bold text-slate-800">GRE 300+ Vocab</h1>
+    <button id="menu-btn" aria-label="Menu">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+      </svg>
+    </button>
+  </header>
+
+  <!-- Sidebar -->
+  <aside id="sidebar" class="sidebar">
+    <h2 class="text-xl font-bold mb-3">About App</h2>
+    <div class="p-3 mb-6 rounded-lg bg-slate-100 text-sm text-slate-700">
+      A simple flashcard-style GRE vocabulary learning app. Swipe or tap arrows to navigate words, and bookmark your favorites.
+    </div>
+
+    <h2 class="text-xl font-bold mb-3">Bookmarks</h2>
+    <ul id="bookmarks-list" class="space-y-2 text-slate-800"></ul>
+  </aside>
+
+  <!-- Overlay -->
+  <div id="overlay" class="overlay"></div>
+
+  <!-- Main Card -->
+  <main class="max-w-md mx-auto px-4 py-6">
+    <div id="card" class="card-inner relative">
+      <button id="bookmark-btn" class="absolute top-3 right-3 bg-white p-2 rounded-lg shadow">
+        <!-- Bookmark icon -->
+        <svg id="bm-outline" xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v16l7-5 7 5V3z"/>
+        </svg>
+        <svg id="bm-fill" xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-yellow-500 hidden" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6 2a1 1 0 0 0-1 1v18l8-6 8 6V3a1 1 0 0 0-1-1H6z"/>
+        </svg>
+      </button>
+
+      <h2 id="word-display" class="text-3xl font-extrabold text-slate-900"></h2>
+      <p id="sentence-display" class="mt-4 text-slate-700"></p>
+
+      <div class="mt-6 space-y-4">
+        <div>
+          <h3 class="font-semibold text-indigo-600">Meaning</h3>
+          <p id="meaning-display" class="text-slate-800"></p>
+        </div>
+        <div>
+          <h3 class="font-semibold text-indigo-600">Root breakdown</h3>
+          <p id="root-display" class="italic text-slate-600"></p>
+        </div>
+        <div>
+          <h3 class="font-semibold text-indigo-600">Synonyms</h3>
+          <p id="synonyms-display" class="text-slate-800"></p>
+        </div>
+        <div>
+          <h3 class="font-semibold text-indigo-600">Antonyms</h3>
+          <p id="antonyms-display" class="text-slate-800"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="mt-6 flex items-center justify-between">
+      <button id="prev-btn" class="bg-slate-200 p-3 rounded-full">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <div id="card-counter" class="text-slate-700 font-semibold">1 / 1</div>
+      <button id="next-btn" class="bg-slate-200 p-3 rounded-full">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+  </main>
+
+  <script>
+    if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("service-worker.js")
+    .then(() => console.log("Service Worker registered"))
+    .catch(err => console.error("SW registration failed:", err));
+}
+    const card = document.getElementById('card');
+    const wordDisplay = document.getElementById('word-display');
+    const sentenceDisplay = document.getElementById('sentence-display');
+    const meaningDisplay = document.getElementById('meaning-display');
+    const rootDisplay = document.getElementById('root-display');
+    const synonymsDisplay = document.getElementById('synonyms-display');
+    const antonymsDisplay = document.getElementById('antonyms-display');
+    const counter = document.getElementById('card-counter');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const bookmarkBtn = document.getElementById('bookmark-btn');
+    const bmOutline = document.getElementById('bm-outline');
+    const bmFill = document.getElementById('bm-fill');
+    const sidebar = document.getElementById('sidebar');
+    const menuBtn = document.getElementById('menu-btn');
+    const overlay = document.getElementById('overlay');
+    const bookmarksList = document.getElementById('bookmarks-list');
+
+    let wordsData = [];
+    let currentIndex = 0;
+
+    // Sidebar toggle
+    function openSidebar() {
+      sidebar.classList.add('open');
+      overlay.classList.add('show');
+    }
+    function closeSidebar() {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('show');
+    }
+    menuBtn.addEventListener('click', openSidebar);
+    overlay.addEventListener('click', closeSidebar);
+
+    // Bookmarks
+    function updateBookmarkIcon() {
+      const isBm = !!wordsData[currentIndex].isBookmarked;
+      bmFill.classList.toggle("hidden", !isBm);
+      bmOutline.classList.toggle("hidden", isBm);
+    }
+
+    function renderBookmarks() {
+      bookmarksList.innerHTML = "";
+      wordsData
+        .filter(item => item.isBookmarked)
+        .forEach(item => {
+          const li = document.createElement("li");
+          li.textContent = item.word;
+          li.className = "px-3 py-2 rounded bg-slate-100 cursor-pointer hover:bg-slate-200";
+          li.addEventListener('click', () => {
+            currentIndex = wordsData.indexOf(item);
+            renderCard();
+            closeSidebar();
+          });
+          bookmarksList.appendChild(li);
+        });
+      // Save bookmarks to localStorage
+      localStorage.setItem("bookmarks", JSON.stringify(wordsData.map(w => w.isBookmarked)));
+    }
+
+    bookmarkBtn.addEventListener('click', () => {
+      let item = wordsData[currentIndex];
+      item.isBookmarked = !item.isBookmarked;
+      updateBookmarkIcon();
+      renderBookmarks();
+    });
+
+    // Render card
+    function renderCard() {
+      const item = wordsData[currentIndex];
+      wordDisplay.textContent = item.word;
+      sentenceDisplay.innerHTML = item.sentence.replace(
+        new RegExp(item.word, "gi"),
+        `<span class="highlight">${item.word}</span>`
+      );
+      meaningDisplay.textContent = item.english;
+      rootDisplay.textContent = item.root;
+      synonymsDisplay.textContent = item.synonyms.join(", ");
+      antonymsDisplay.textContent = item.antonyms.join(", ");
+      counter.textContent = `${currentIndex + 1} / ${wordsData.length}`;
+      updateBookmarkIcon();
+
+      // Save current index
+      localStorage.setItem("lastIndex", currentIndex);
+    }
+
+    // Animations for next/prev
+    function animateCard(direction, callback) {
+      card.style.transform = `translateX(${direction === 'next' ? '-100%' : '100%'})`;
+      card.style.opacity = 0;
+      setTimeout(() => {
+        callback();
+        card.style.transition = "none";
+        card.style.transform = `translateX(${direction === 'next' ? '100%' : '-100%'})`;
+        setTimeout(() => {
+          card.style.transition = "transform 0.3s ease, opacity 0.3s ease";
+          card.style.transform = "translateX(0)";
+          card.style.opacity = 1;
+        }, 50);
+      }, 300);
+    }
+
+    function nextCard() {
+      animateCard('next', () => {
+        currentIndex = (currentIndex + 1) % wordsData.length;
+        renderCard();
+      });
+    }
+
+    function prevCard() {
+      animateCard('prev', () => {
+        currentIndex = (currentIndex - 1 + wordsData.length) % wordsData.length;
+        renderCard();
+      });
+    }
+
+    nextBtn.addEventListener('click', nextCard);
+    prevBtn.addEventListener('click', prevCard);
+
+    // Swipe support
+    let startX = 0;
+    card.addEventListener('touchstart', e => startX = e.touches[0].clientX);
+    card.addEventListener('touchend', e => {
+      let dx = e.changedTouches[0].clientX - startX;
+      if (dx > 50) prevCard();
+      if (dx < -50) nextCard();
+    });
+
+   // Load JSON
+fetch("words.json")
+  .then(res => res.json())
+  .then(data => {
+    // Try to restore a previously saved shuffled order (array of indices)
+    let savedOrder = null;
+    try {
+      savedOrder = JSON.parse(localStorage.getItem("shuffledOrder"));
+    } catch (e) {
+      console.warn("shuffledOrder parse failed, will regenerate:", e);
+      savedOrder = null;
+    }
+
+    if (Array.isArray(savedOrder) && savedOrder.length === data.length) {
+      // restore using saved indices (coerce to numbers just in case)
+      savedOrder = savedOrder.map(n => Number(n));
+      wordsData = savedOrder.map(i => data[i]);
+    } else {
+      // First launch (or mismatch) → generate a fresh Fisher–Yates shuffle of indices
+      const indices = data.map((_, i) => i);
+      for (let i = indices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]];
+      }
+      wordsData = indices.map(i => data[i]);
+      localStorage.setItem("shuffledOrder", JSON.stringify(indices));
+    }
+
+    // Restore bookmarks (support two formats: boolean array OR array of word strings)
+    const savedBookmarksRaw = localStorage.getItem("bookmarks");
+    if (savedBookmarksRaw) {
+      try {
+        const savedBookmarks = JSON.parse(savedBookmarksRaw);
+        if (Array.isArray(savedBookmarks)) {
+          if (savedBookmarks.length === wordsData.length && typeof savedBookmarks[0] === "boolean") {
+            // boolean per-index (matches current wordsData order)
+            wordsData.forEach((w, i) => w.isBookmarked = !!savedBookmarks[i]);
+          } else if (savedBookmarks.length > 0 && typeof savedBookmarks[0] === "string") {
+            // array of word strings -> map by word
+            const bmSet = new Set(savedBookmarks);
+            wordsData.forEach(w => w.isBookmarked = bmSet.has(w.word));
+          } else {
+            // unknown format — clear or default
+            wordsData.forEach(w => w.isBookmarked = !!w.isBookmarked);
+          }
+        }
+      } catch (e) {
+        console.warn("bookmarks parse failed, ignoring saved bookmarks:", e);
+        wordsData.forEach(w => w.isBookmarked = !!w.isBookmarked);
+      }
+    } else {
+      // no saved bookmarks -> ensure boolean property exists
+      wordsData.forEach(w => w.isBookmarked = !!w.isBookmarked);
+    }
+
+    // Restore last index (ensure it's a valid number in range)
+    const savedIndex = parseInt(localStorage.getItem("lastIndex"), 10);
+    if (!isNaN(savedIndex) && savedIndex >= 0 && savedIndex < wordsData.length) {
+      currentIndex = savedIndex;
+    } else {
+      currentIndex = 0;
+    }
+
+    renderCard();
+    renderBookmarks();
+  })
+  .catch(err => {
+    console.error("Fa```iled to load words.json", err);
+    wordDisplay.textContent = "⚠️ Error loading data";
+  });
+  </script>
+</body>
+</html>
