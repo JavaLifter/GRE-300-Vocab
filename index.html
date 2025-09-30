@@ -9,13 +9,19 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1e3a8a">
   <style>
-    body { font-family: 'Inter', sans-serif; }
+    body { 
+      font-family: 'Inter', sans-serif; 
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
     .card-inner {
       border-radius: 20px;
       box-shadow: 0 8px 20px rgba(2,6,23,0.08);
       background: white;
       padding: 1.25rem;
       transition: transform 0.3s ease, opacity 0.3s ease;
+      min-height: 400px;
+      margin-bottom: 80px; /* Space for fixed buttons */
     }
     .highlight {
       background: #fde68a;
@@ -44,12 +50,48 @@
       z-index: 40;
     }
     .overlay.show { display: block; }
+    
+    /* Fixed navigation */
+    .fixed-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: white;
+      border-top: 1px solid #e2e8f0;
+      padding: 1rem;
+      z-index: 30;
+    }
+    
+    /* Prevent body scroll when sidebar is open */
+    body.sidebar-open {
+      overflow: hidden;
+    }
+    
+    /* Card animations */
+    .card-slide-left {
+      animation: slideLeft 0.3s ease-out;
+    }
+    
+    .card-slide-right {
+      animation: slideRight 0.3s ease-out;
+    }
+    
+    @keyframes slideLeft {
+      from { transform: translateX(100px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    @keyframes slideRight {
+      from { transform: translateX(-100px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
   </style>
 </head>
 <body class="bg-gradient-to-tr from-indigo-50 via-white to-slate-50 min-h-screen transition-colors duration-300">
 
   <!-- Header -->
-  <header class="w-full flex items-center justify-between px-4 py-3 shadow-sm bg-white">
+  <header class="w-full flex items-center justify-between px-4 py-3 shadow-sm bg-white sticky top-0 z-20">
     <h1 class="text-lg font-bold text-slate-800">GRE 300+ Vocab</h1>
     <button id="menu-btn" aria-label="Menu">
       <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -60,14 +102,47 @@
 
   <!-- Sidebar -->
   <aside id="sidebar" class="sidebar">
-    <h2 class="text-xl font-bold mb-3">About App</h2>
-    <div class="p-3 mb-6 rounded-lg bg-slate-100 text-sm text-slate-700">
-      A simple flashcard-style GRE vocabulary learning app. Swipe or tap arrows to navigate words, and bookmark your favorites.
-    </div>
-
-    <h2 class="text-xl font-bold mb-3">Bookmarks</h2>
+    <h2 class="text-xl font-bold mb-3 flex items-center justify-between">
+      Bookmarks 
+      <span id="bookmark-count" class="text-sm bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">0</span>
+    </h2>
     <ul id="bookmarks-list" class="space-y-2 text-slate-800"></ul>
   </aside>
+
+  <!-- Bookmark Reader Fullscreen -->
+  <div id="bookmark-reader" class="fixed inset-0 bg-white z-50 hidden flex flex-col">
+    <!-- Header -->
+    <header class="w-full flex items-center justify-between px-4 py-3 shadow-sm bg-white">
+      <h1 class="text-lg font-bold text-slate-800">Bookmarks</h1>
+      <button id="bookmark-close-btn" aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </header>
+
+    <!-- Bookmark Card Area -->
+    <main class="flex-1 overflow-y-auto px-4 py-6">
+      <div class="max-w-md mx-auto">
+        <div id="bookmark-card" class="card-inner"></div>
+      </div>
+    </main>
+
+    <!-- Navigation (fixed bottom) -->
+    <div class="fixed-nav flex items-center justify-between">
+      <button id="bookmark-prev-btn" class="bg-indigo-600 text-white p-3 rounded-full shadow-md hover:bg-indigo-700 active:scale-95 transition disabled:bg-gray-400 disabled:cursor-not-allowed">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+      </button>
+      <div id="bookmark-counter" class="text-slate-700 font-semibold"></div>
+      <button id="bookmark-next-btn" class="bg-indigo-600 text-white p-3 rounded-full shadow-md hover:bg-indigo-700 active:scale-95 transition disabled:bg-gray-400 disabled:cursor-not-allowed">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </button>
+    </div>
+  </div>
 
   <!-- Overlay -->
   <div id="overlay" class="overlay"></div>
@@ -75,7 +150,7 @@
   <!-- Main Card -->
   <main class="max-w-md mx-auto px-4 py-6">
     <div id="card" class="card-inner relative">
-      <button id="bookmark-btn" class="absolute top-3 right-3 bg-white p-2 rounded-lg shadow">
+      <button id="bookmark-btn" class="absolute top-3 right-3 bg-white p-2 rounded-lg shadow hover:bg-gray-50 transition">
         <!-- Bookmark icon -->
         <svg id="bm-outline" xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v16l7-5 7 5V3z"/>
@@ -85,47 +160,54 @@
         </svg>
       </button>
 
-      <h2 id="word-display" class="text-3xl font-extrabold text-slate-900"></h2>
-      <p id="sentence-display" class="mt-4 text-slate-700"></p>
+      <h2 id="word-display" class="text-3xl font-extrabold text-slate-900 mb-4"></h2>
+      <p id="sentence-display" class="text-slate-700 text-lg leading-relaxed mb-6"></p>
 
-      <div class="mt-6 space-y-4">
+      <div class="space-y-4">
         <div>
-          <h3 class="font-semibold text-indigo-600">Meaning</h3>
+          <h3 class="font-semibold text-indigo-600 text-sm uppercase tracking-wide mb-1">Meaning</h3>
           <p id="meaning-display" class="text-slate-800"></p>
         </div>
         <div>
-          <h3 class="font-semibold text-indigo-600">Root breakdown</h3>
+          <h3 class="font-semibold text-indigo-600 text-sm uppercase tracking-wide mb-1">Root breakdown</h3>
           <p id="root-display" class="italic text-slate-600"></p>
         </div>
         <div>
-          <h3 class="font-semibold text-indigo-600">Synonyms</h3>
+          <h3 class="font-semibold text-indigo-600 text-sm uppercase tracking-wide mb-1">Synonyms</h3>
           <p id="synonyms-display" class="text-slate-800"></p>
         </div>
         <div>
-          <h3 class="font-semibold text-indigo-600">Antonyms</h3>
+          <h3 class="font-semibold text-indigo-600 text-sm uppercase tracking-wide mb-1">Antonyms</h3>
           <p id="antonyms-display" class="text-slate-800"></p>
         </div>
       </div>
     </div>
-
-    <!-- Navigation -->
-    <div class="mt-6 flex items-center justify-between">
-      <button id="prev-btn" class="bg-slate-200 p-3 rounded-full">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-      </button>
-      <div id="card-counter" class="text-slate-700 font-semibold">1 / 1</div>
-      <button id="next-btn" class="bg-slate-200 p-3 rounded-full">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-      </button>
-    </div>
   </main>
+
+  <!-- Fixed Navigation -->
+  <div class="fixed-nav flex items-center justify-between">
+    <button id="prev-btn" class="bg-indigo-600 text-white p-3 rounded-full shadow-md hover:bg-indigo-700 active:scale-95 transition disabled:bg-gray-400 disabled:cursor-not-allowed">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+    </button>
+
+    <div id="card-counter" class="text-slate-700 font-semibold">1 / 1</div>
+
+    <button id="next-btn" class="bg-indigo-600 text-white p-3 rounded-full shadow-md hover:bg-indigo-700 active:scale-95 transition disabled:bg-gray-400 disabled:cursor-not-allowed">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+      </svg>
+    </button>
+  </div>
 
   <script>
     if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("service-worker.js")
-    .then(() => console.log("Service Worker registered"))
-    .catch(err => console.error("SW registration failed:", err));
-}
+      navigator.serviceWorker.register("service-worker.js")
+        .then(() => console.log("Service Worker registered"))
+        .catch(err => console.error("SW registration failed:", err));
+    }
+
     const card = document.getElementById('card');
     const wordDisplay = document.getElementById('word-display');
     const sentenceDisplay = document.getElementById('sentence-display');
@@ -140,22 +222,29 @@
     const bmOutline = document.getElementById('bm-outline');
     const bmFill = document.getElementById('bm-fill');
     const sidebar = document.getElementById('sidebar');
+    const bookmarkReader = document.getElementById('bookmark-reader');
     const menuBtn = document.getElementById('menu-btn');
     const overlay = document.getElementById('overlay');
     const bookmarksList = document.getElementById('bookmarks-list');
 
     let wordsData = [];
     let currentIndex = 0;
+    let bookmarkIndex = 0;
+    let bookmarkData = [];
 
     // Sidebar toggle
     function openSidebar() {
       sidebar.classList.add('open');
       overlay.classList.add('show');
+      document.body.classList.add('sidebar-open');
     }
+    
     function closeSidebar() {
       sidebar.classList.remove('open');
       overlay.classList.remove('show');
+      document.body.classList.remove('sidebar-open');
     }
+    
     menuBtn.addEventListener('click', openSidebar);
     overlay.addEventListener('click', closeSidebar);
 
@@ -168,20 +257,29 @@
 
     function renderBookmarks() {
       bookmarksList.innerHTML = "";
-      wordsData
-        .filter(item => item.isBookmarked)
-        .forEach(item => {
-          const li = document.createElement("li");
-          li.textContent = item.word;
-          li.className = "px-3 py-2 rounded bg-slate-100 cursor-pointer hover:bg-slate-200";
-          li.addEventListener('click', () => {
-            currentIndex = wordsData.indexOf(item);
-            renderCard();
-            closeSidebar();
-          });
-          bookmarksList.appendChild(li);
+      const bookmarked = wordsData.filter(item => item.isBookmarked);
+
+      document.getElementById("bookmark-count").textContent = bookmarked.length;
+
+      if (bookmarked.length === 0) {
+        const li = document.createElement("li");
+        li.textContent = "No bookmarks yet";
+        li.className = "px-3 py-2 text-slate-500 italic";
+        bookmarksList.appendChild(li);
+        return;
+      }
+
+      bookmarked.forEach(item => {
+        const li = document.createElement("li");
+        li.textContent = item.word;
+        li.className = "px-3 py-2 rounded bg-slate-100 cursor-pointer hover:bg-slate-200 transition-colors";
+        li.addEventListener('click', () => {
+          openBookmarkReader(bookmarked, bookmarked.indexOf(item));
+          closeSidebar();
         });
-      // Save bookmarks to localStorage
+        bookmarksList.appendChild(li);
+      });
+
       localStorage.setItem("bookmarks", JSON.stringify(wordsData.map(w => w.isBookmarked)));
     }
 
@@ -192,13 +290,90 @@
       renderBookmarks();
     });
 
-    // Render card
-    function renderCard() {
+    // Bookmark Reader
+    function openBookmarkReader(data, index) {
+      bookmarkData = data;
+      bookmarkIndex = index;
+      renderBookmarkCard();
+      bookmarkReader.classList.remove("hidden");
+      document.body.classList.add('sidebar-open');
+    }
+
+    function renderBookmarkCard() {
+      const item = bookmarkData[bookmarkIndex];
+      document.getElementById("bookmark-card").innerHTML = `
+        <h2 class="text-3xl font-extrabold text-slate-900 mb-4">${item.word}</h2>
+        <p class="text-slate-700 text-lg leading-relaxed mb-6">${item.sentence.replace(
+          new RegExp(item.word, "gi"),
+          (match) => `<span class="highlight">${match}</span>`
+        )}</p>
+        <div class="space-y-4">
+          <div>
+            <h3 class="font-semibold text-indigo-600 text-sm uppercase tracking-wide mb-1">Meaning</h3>
+            <p>${item.english}</p>
+          </div>
+          <div>
+            <h3 class="font-semibold text-indigo-600 text-sm uppercase tracking-wide mb-1">Root breakdown</h3>
+            <p class="italic text-slate-600">${item.root}</p>
+          </div>
+          <div>
+            <h3 class="font-semibold text-indigo-600 text-sm uppercase tracking-wide mb-1">Synonyms</h3>
+            <p>${item.synonyms.join(", ")}</p>
+          </div>
+          <div>
+            <h3 class="font-semibold text-indigo-600 text-sm uppercase tracking-wide mb-1">Antonyms</h3>
+            <p>${item.antonyms.join(", ")}</p>
+          </div>
+        </div>
+      `;
+      document.getElementById("bookmark-counter").textContent =
+        `${bookmarkIndex + 1} / ${bookmarkData.length}`;
+        
+      // Update button states
+      document.getElementById("bookmark-prev-btn").disabled = bookmarkIndex === 0;
+      document.getElementById("bookmark-next-btn").disabled = bookmarkIndex === bookmarkData.length - 1;
+    }
+
+    document.getElementById("bookmark-prev-btn").addEventListener("click", () => {
+      if (bookmarkIndex > 0) {
+        bookmarkIndex--;
+        renderBookmarkCard();
+      }
+    });
+    
+    document.getElementById("bookmark-next-btn").addEventListener("click", () => {
+      if (bookmarkIndex < bookmarkData.length - 1) {
+        bookmarkIndex++;
+        renderBookmarkCard();
+      }
+    });
+    
+    document.getElementById("bookmark-close-btn").addEventListener("click", () => {
+      bookmarkReader.classList.add("hidden");
+      document.body.classList.remove('sidebar-open');
+    });
+
+    // Render card with animation
+    function renderCard(direction = 'none') {
       const item = wordsData[currentIndex];
+      
+      // Remove previous animations
+      card.classList.remove('card-slide-left', 'card-slide-right');
+      
+      // Force reflow
+      void card.offsetWidth;
+      
+      // Add new animation
+      if (direction === 'next') {
+        card.classList.add('card-slide-left');
+      } else if (direction === 'prev') {
+        card.classList.add('card-slide-right');
+      }
+
       wordDisplay.textContent = item.word;
       sentenceDisplay.innerHTML = item.sentence.replace(
         new RegExp(item.word, "gi"),
-        `<span class="highlight">${item.word}</span>`
+        (match) => `<span class="highlight">${match}</span>`
       );
       meaningDisplay.textContent = item.english;
       rootDisplay.textContent = item.root;
@@ -207,122 +382,110 @@
       counter.textContent = `${currentIndex + 1} / ${wordsData.length}`;
       updateBookmarkIcon();
 
-      // Save current index
+      // Update button states
+      prevBtn.disabled = currentIndex === 0;
+      nextBtn.disabled = currentIndex === wordsData.length - 1;
+
       localStorage.setItem("lastIndex", currentIndex);
     }
 
-    // Animations for next/prev
-    function animateCard(direction, callback) {
-      card.style.transform = `translateX(${direction === 'next' ? '-100%' : '100%'})`;
-      card.style.opacity = 0;
-      setTimeout(() => {
-        callback();
-        card.style.transition = "none";
-        card.style.transform = `translateX(${direction === 'next' ? '100%' : '-100%'})`;
-        setTimeout(() => {
-          card.style.transition = "transform 0.3s ease, opacity 0.3s ease";
-          card.style.transform = "translateX(0)";
-          card.style.opacity = 1;
-        }, 50);
-      }, 300);
-    }
+    // Improved swipe gestures
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let isSwiping = false;
 
-    function nextCard() {
-      animateCard('next', () => {
-        currentIndex = (currentIndex + 1) % wordsData.length;
-        renderCard();
-      });
-    }
+    card.addEventListener("touchstart", (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+      touchStartY = e.changedTouches[0].screenY;
+      isSwiping = true;
+    }, { passive: true });
 
-    function prevCard() {
-      animateCard('prev', () => {
-        currentIndex = (currentIndex - 1 + wordsData.length) % wordsData.length;
-        renderCard();
-      });
-    }
-
-    nextBtn.addEventListener('click', nextCard);
-    prevBtn.addEventListener('click', prevCard);
-
-    // Swipe support
-    let startX = 0;
-    card.addEventListener('touchstart', e => startX = e.touches[0].clientX);
-    card.addEventListener('touchend', e => {
-      let dx = e.changedTouches[0].clientX - startX;
-      if (dx > 50) prevCard();
-      if (dx < -50) nextCard();
-    });
-
-   // Load JSON
-fetch("words.json")
-  .then(res => res.json())
-  .then(data => {
-    // Try to restore a previously saved shuffled order (array of indices)
-    let savedOrder = null;
-    try {
-      savedOrder = JSON.parse(localStorage.getItem("shuffledOrder"));
-    } catch (e) {
-      console.warn("shuffledOrder parse failed, will regenerate:", e);
-      savedOrder = null;
-    }
-
-    if (Array.isArray(savedOrder) && savedOrder.length === data.length) {
-      // restore using saved indices (coerce to numbers just in case)
-      savedOrder = savedOrder.map(n => Number(n));
-      wordsData = savedOrder.map(i => data[i]);
-    } else {
-      // First launch (or mismatch) → generate a fresh Fisher–Yates shuffle of indices
-      const indices = data.map((_, i) => i);
-      for (let i = indices.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [indices[i], indices[j]] = [indices[j], indices[i]];
+    card.addEventListener("touchmove", (e) => {
+      if (!isSwiping) return;
+      
+      const touchX = e.changedTouches[0].screenX;
+      const touchY = e.changedTouches[0].screenY;
+      const diffX = touchStartX - touchX;
+      const diffY = touchStartY - touchY;
+      
+      // Only prevent default if it's a horizontal swipe
+      if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
+        e.preventDefault();
       }
-      wordsData = indices.map(i => data[i]);
-      localStorage.setItem("shuffledOrder", JSON.stringify(indices));
-    }
+    }, { passive: false });
 
-    // Restore bookmarks (support two formats: boolean array OR array of word strings)
-    const savedBookmarksRaw = localStorage.getItem("bookmarks");
-    if (savedBookmarksRaw) {
-      try {
-        const savedBookmarks = JSON.parse(savedBookmarksRaw);
-        if (Array.isArray(savedBookmarks)) {
-          if (savedBookmarks.length === wordsData.length && typeof savedBookmarks[0] === "boolean") {
-            // boolean per-index (matches current wordsData order)
-            wordsData.forEach((w, i) => w.isBookmarked = !!savedBookmarks[i]);
-          } else if (savedBookmarks.length > 0 && typeof savedBookmarks[0] === "string") {
-            // array of word strings -> map by word
-            const bmSet = new Set(savedBookmarks);
-            wordsData.forEach(w => w.isBookmarked = bmSet.has(w.word));
-          } else {
-            // unknown format — clear or default
-            wordsData.forEach(w => w.isBookmarked = !!w.isBookmarked);
+    card.addEventListener("touchend", (e) => {
+      if (!isSwiping) return;
+      
+      const touchEndX = e.changedTouches[0].screenX;
+      const touchEndY = e.changedTouches[0].screenY;
+      const diffX = touchStartX - touchEndX;
+      const diffY = touchStartY - touchEndY;
+      
+      // Only register as swipe if primarily horizontal
+      if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+        e.preventDefault();
+        if (diffX > 0) {
+          // Swipe left - next
+          if (currentIndex < wordsData.length - 1) {
+            currentIndex++;
+            renderCard('next');
+          }
+        } else {
+          // Swipe right - previous
+          if (currentIndex > 0) {
+            currentIndex--;
+            renderCard('prev');
           }
         }
-      } catch (e) {
-        console.warn("bookmarks parse failed, ignoring saved bookmarks:", e);
-        wordsData.forEach(w => w.isBookmarked = !!w.isBookmarked);
       }
-    } else {
-      // no saved bookmarks -> ensure boolean property exists
-      wordsData.forEach(w => w.isBookmarked = !!w.isBookmarked);
-    }
+      
+      isSwiping = false;
+    }, { passive: false });
 
-    // Restore last index (ensure it's a valid number in range)
-    const savedIndex = parseInt(localStorage.getItem("lastIndex"), 10);
-    if (!isNaN(savedIndex) && savedIndex >= 0 && savedIndex < wordsData.length) {
-      currentIndex = savedIndex;
-    } else {
-      currentIndex = 0;
-    }
+    // Load words
+    fetch("words.json")
+      .then(res => res.json())
+      .then(data => {
+        wordsData = data;
+        const savedBm = JSON.parse(localStorage.getItem("bookmarks"));
+        if (savedBm) {
+          wordsData.forEach((w, i) => w.isBookmarked = savedBm[i] || false);
+        }
+        const lastIndex = localStorage.getItem("lastIndex");
+        currentIndex = lastIndex ? parseInt(lastIndex) : 0;
+        renderCard();
+        renderBookmarks();
+      })
+      .catch(err => {
+        console.error('Failed to load words:', err);
+        wordDisplay.textContent = "Error loading words";
+      });
 
-    renderCard();
-    renderBookmarks();
-  })
-  .catch(err => {
-    console.error("Fa```iled to load words.json", err);
-    wordDisplay.textContent = "⚠️ Error loading data";
-  });
+    prevBtn.addEventListener("click", () => {
+      if (currentIndex > 0) {
+        currentIndex--;
+        renderCard('prev');
+      }
+    });
+    
+    nextBtn.addEventListener("click", () => {
+      if (currentIndex < wordsData.length - 1) {
+        currentIndex++;
+        renderCard('next');
+      }
+    });
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      if (bookmarkReader.classList.contains('hidden')) {
+        if (e.key === 'ArrowLeft') {
+          prevBtn.click();
+        } else if (e.key === 'ArrowRight') {
+          nextBtn.click();
+        }
+      }
+    });
   </script>
 </body>
 </html>
