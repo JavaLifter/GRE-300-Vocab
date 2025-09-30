@@ -12,7 +12,7 @@ A progressive web app for learning GRE vocabulary with 300+ words, definitions, 
 
 ## Usage
 
-Visit the [live demo](https://your-username.github.io/GRE-300-Vocab/) or install as a PWA on your mobile device.
+Visit the [live demo](https://javalifter.github.io/GRE-300-Vocab/) or install as a PWA on your mobile device.
 
 ## License
 
