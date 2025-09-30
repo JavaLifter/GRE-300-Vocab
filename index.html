@@ -21,7 +21,7 @@
       padding: 1.25rem;
       transition: transform 0.3s ease, opacity 0.3s ease;
       min-height: 400px;
-      margin-bottom: 80px; /* Space for fixed buttons */
+      margin-bottom: 20px;
     }
     .highlight {
       background: #fde68a;
@@ -86,6 +86,24 @@
       from { transform: translateX(-100px); opacity: 0; }
       to { transform: translateX(0); opacity: 1; }
     }
+    
+    /* Swipe instruction */
+    .swipe-instruction {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 12px;
+      padding: 1rem;
+      text-align: center;
+      margin-top: 1rem;
+    }
+    
+    .swipe-arrows {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin: 0.5rem 0;
+      font-size: 1.5rem;
+    }
   </style>
 </head>
 <body class="bg-gradient-to-tr from-indigo-50 via-white to-slate-50 min-h-screen transition-colors duration-300">
@@ -125,23 +143,18 @@
     <main class="flex-1 overflow-y-auto px-4 py-6">
       <div class="max-w-md mx-auto">
         <div id="bookmark-card" class="card-inner"></div>
+        
+        <!-- Swipe instruction for bookmarks -->
+        <div class="swipe-instruction">
+          <div class="swipe-arrows">
+            <span>←</span>
+            <span>→</span>
+          </div>
+          <p class="text-sm font-medium">Swipe to navigate bookmarks</p>
+          <div id="bookmark-counter" class="text-sm font-semibold mt-2"></div>
+        </div>
       </div>
     </main>
-
-    <!-- Navigation (fixed bottom) -->
-    <div class="fixed-nav flex items-center justify-between">
-      <button id="bookmark-prev-btn" class="bg-indigo-600 text-white p-3 rounded-full shadow-md hover:bg-indigo-700 active:scale-95 transition disabled:bg-gray-400 disabled:cursor-not-allowed">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-        </svg>
-      </button>
-      <div id="bookmark-counter" class="text-slate-700 font-semibold"></div>
-      <button id="bookmark-next-btn" class="bg-indigo-600 text-white p-3 rounded-full shadow-md hover:bg-indigo-700 active:scale-95 transition disabled:bg-gray-400 disabled:cursor-not-allowed">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-        </svg>
-      </button>
-    </div>
   </div>
 
   <!-- Overlay -->
@@ -182,24 +195,17 @@
         </div>
       </div>
     </div>
+    
+    <!-- Swipe instruction -->
+    <div class="swipe-instruction">
+      <div class="swipe-arrows">
+        <span>←</span>
+        <span>→</span>
+      </div>
+      <p class="text-sm font-medium">Swipe left or right to navigate cards</p>
+      <div id="card-counter" class="text-sm font-semibold mt-2">1 / 1</div>
+    </div>
   </main>
-
-  <!-- Fixed Navigation -->
-  <div class="fixed-nav flex items-center justify-between">
-    <button id="prev-btn" class="bg-indigo-600 text-white p-3 rounded-full shadow-md hover:bg-indigo-700 active:scale-95 transition disabled:bg-gray-400 disabled:cursor-not-allowed">
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-      </svg>
-    </button>
-
-    <div id="card-counter" class="text-slate-700 font-semibold">1 / 1</div>
-
-    <button id="next-btn" class="bg-indigo-600 text-white p-3 rounded-full shadow-md hover:bg-indigo-700 active:scale-95 transition disabled:bg-gray-400 disabled:cursor-not-allowed">
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-      </svg>
-    </button>
-  </div>
 
   <script>
     if ("serviceWorker" in navigator) {
@@ -216,8 +222,6 @@
     const synonymsDisplay = document.getElementById('synonyms-display');
     const antonymsDisplay = document.getElementById('antonyms-display');
     const counter = document.getElementById('card-counter');
-    const prevBtn = document.getElementById('prev-btn');
-    const nextBtn = document.getElementById('next-btn');
     const bookmarkBtn = document.getElementById('bookmark-btn');
     const bmOutline = document.getElementById('bm-outline');
     const bmFill = document.getElementById('bm-fill');
@@ -231,6 +235,16 @@
     let currentIndex = 0;
     let bookmarkIndex = 0;
     let bookmarkData = [];
+
+    // Fisher-Yates shuffle algorithm
+    function shuffleArray(array) {
+      const shuffled = [...array];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    }
 
     // Sidebar toggle
     function openSidebar() {
@@ -328,20 +342,16 @@
       `;
       document.getElementById("bookmark-counter").textContent =
         `${bookmarkIndex + 1} / ${bookmarkData.length}`;
-        
-      // Update button states
-      document.getElementById("bookmark-prev-btn").disabled = bookmarkIndex === 0;
-      document.getElementById("bookmark-next-btn").disabled = bookmarkIndex === bookmarkData.length - 1;
     }
 
-    document.getElementById("bookmark-prev-btn").addEventListener("click", () => {
+    document.getElementById("bookmark-prev-btn")?.addEventListener("click", () => {
       if (bookmarkIndex > 0) {
         bookmarkIndex--;
         renderBookmarkCard();
       }
     });
     
-    document.getElementById("bookmark-next-btn").addEventListener("click", () => {
+    document.getElementById("bookmark-next-btn")?.addEventListener("click", () => {
       if (bookmarkIndex < bookmarkData.length - 1) {
         bookmarkIndex++;
         renderBookmarkCard();
@@ -381,10 +391,6 @@
       antonymsDisplay.textContent = item.antonyms.join(", ");
       counter.textContent = `${currentIndex + 1} / ${wordsData.length}`;
       updateBookmarkIcon();
-
-      // Update button states
-      prevBtn.disabled = currentIndex === 0;
-      nextBtn.disabled = currentIndex === wordsData.length - 1;
 
       localStorage.setItem("lastIndex", currentIndex);
     }
@@ -443,15 +449,23 @@
       isSwiping = false;
     }, { passive: false });
 
-    // Load words
+    // Load words and shuffle
     fetch("words.json")
       .then(res => res.json())
       .then(data => {
-        wordsData = data;
+        // Shuffle the words array
+        wordsData = shuffleArray(data);
+        
         const savedBm = JSON.parse(localStorage.getItem("bookmarks"));
         if (savedBm) {
-          wordsData.forEach((w, i) => w.isBookmarked = savedBm[i] || false);
+          // Apply saved bookmarks to shuffled array
+          const originalData = data; // Keep original order for bookmark matching
+          wordsData.forEach((w, i) => {
+            const originalIndex = originalData.findIndex(item => item.word === w.word);
+            w.isBookmarked = savedBm[originalIndex] || false;
+          });
         }
+        
         const lastIndex = localStorage.getItem("lastIndex");
         currentIndex = lastIndex ? parseInt(lastIndex) : 0;
         renderCard();
@@ -462,30 +476,49 @@
         wordDisplay.textContent = "Error loading words";
       });
 
-    prevBtn.addEventListener("click", () => {
-      if (currentIndex > 0) {
-        currentIndex--;
-        renderCard('prev');
-      }
-    });
-    
-    nextBtn.addEventListener("click", () => {
-      if (currentIndex < wordsData.length - 1) {
-        currentIndex++;
-        renderCard('next');
-      }
-    });
-
-    // Keyboard navigation
+    // Keyboard navigation for desktop users
     document.addEventListener('keydown', (e) => {
       if (bookmarkReader.classList.contains('hidden')) {
-        if (e.key === 'ArrowLeft') {
-          prevBtn.click();
-        } else if (e.key === 'ArrowRight') {
-          nextBtn.click();
+        if (e.key === 'ArrowLeft' && currentIndex > 0) {
+          currentIndex--;
+          renderCard('prev');
+        } else if (e.key === 'ArrowRight' && currentIndex < wordsData.length - 1) {
+          currentIndex++;
+          renderCard('next');
         }
       }
     });
+
+    // Bookmark reader swipe gestures
+    const bookmarkCard = document.getElementById('bookmark-card');
+    if (bookmarkCard) {
+      bookmarkCard.addEventListener("touchstart", (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+        touchStartY = e.changedTouches[0].screenY;
+        isSwiping = true;
+      }, { passive: true });
+
+      bookmarkCard.addEventListener("touchend", (e) => {
+        if (!isSwiping) return;
+        
+        const touchEndX = e.changedTouches[0].screenX;
+        const diffX = touchStartX - touchEndX;
+        
+        if (Math.abs(diffX) > 50) {
+          if (diffX > 0 && bookmarkIndex < bookmarkData.length - 1) {
+            // Swipe left - next bookmark
+            bookmarkIndex++;
+            renderBookmarkCard();
+          } else if (diffX < 0 && bookmarkIndex > 0) {
+            // Swipe right - previous bookmark
+            bookmarkIndex--;
+            renderBookmarkCard();
+          }
+        }
+        
+        isSwiping = false;
+      }, { passive: true });
+    }
   </script>
 </body>
 </html>
