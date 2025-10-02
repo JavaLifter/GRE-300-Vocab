@@ -8,93 +8,15 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1e3a8a">
-  <style>
-    body { 
-      font-family: 'Inter', sans-serif; 
-      overflow-x: hidden;
-      -webkit-overflow-scrolling: touch;
-    }
-    .card-inner {
-      border-radius: 20px;
-      box-shadow: 0 8px 20px rgba(2,6,23,0.08);
-      background: white;
-      padding: 1.25rem;
-      transition: transform 0.3s ease, opacity 0.3s ease;
-      min-height: 400px;
-    }
-    .highlight {
-      background: #fde68a;
-      padding: 0 4px;
-      border-radius: 4px;
-    }
-    /* Sidebar overlay */
-    .sidebar {
-      position: fixed;
-      top: 0; right: -300px;
-      width: 300px; height: 100%;
-      background: #fff;
-      box-shadow: -2px 0 8px rgba(0,0,0,0.1);
-      transition: right 0.3s ease;
-      z-index: 50;
-      padding: 1rem;
-      overflow-y: auto;
-    }
-    .sidebar.open { right: 0; }
-    /* Overlay background */
-    .overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.3);
-      display: none;
-      z-index: 40;
-    }
-    .overlay.show { display: block; }
-    
-    /* Fixed footer */
-    .fixed-footer {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      background: white;
-      border-top: 1px solid #e2e8f0;
-      padding: 0.75rem 1rem;
-      z-index: 30;
-      text-align: center;
-    }
-    
-    /* Prevent body scroll when sidebar is open */
-    body.sidebar-open {
-      overflow: hidden;
-    }
-    
-    /* Card animations */
-    .card-slide-left {
-      animation: slideLeft 0.3s ease-out;
-    }
-    
-    .card-slide-right {
-      animation: slideRight 0.3s ease-out;
-    }
-    
-    @keyframes slideLeft {
-      from { transform: translateX(100px); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
-    }
-    
-    @keyframes slideRight {
-      from { transform: translateX(-100px); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
-    }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-gradient-to-tr from-indigo-50 via-white to-slate-50 min-h-screen transition-colors duration-300">
+<body>
 
   <!-- Header -->
-  <header class="w-full flex items-center justify-between px-4 py-3 shadow-sm bg-white sticky top-0 z-20">
-    <h1 class="text-lg font-bold text-slate-800">GRE 300+ Vocab</h1>
+  <header class="w-full flex items-center justify-between px-4 py-3 shadow-sm">
+    <h1 class="text-lg font-bold text-header">GRE 300+ Vocab</h1>
     <button id="menu-btn" aria-label="Menu">
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
       </svg>
     </button>
@@ -102,48 +24,23 @@
 
   <!-- Sidebar -->
   <aside id="sidebar" class="sidebar">
-    <h2 class="text-xl font-bold mb-3 flex items-center justify-between">
-      Bookmarks 
-      <span id="bookmark-count" class="text-sm bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">0</span>
-    </h2>
-    <ul id="bookmarks-list" class="space-y-2 text-slate-800"></ul>
-  </aside>
-
-  <!-- Bookmark Reader Fullscreen -->
-  <div id="bookmark-reader" class="fixed inset-0 bg-white z-50 hidden flex flex-col">
-    <!-- Header -->
-    <header class="w-full flex items-center justify-between px-4 py-3 shadow-sm bg-white">
-      <h1 class="text-lg font-bold text-slate-800">Bookmarks</h1>
-      <button id="bookmark-close-btn" aria-label="Close">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
-      </button>
-    </header>
-
-    <!-- Bookmark Card Area -->
-    <main class="flex-1 overflow-y-auto px-4 py-6">
-      <div class="max-w-md mx-auto">
-        <div id="bookmark-card" class="card-inner"></div>
-      </div>
-    </main>
-
-    <!-- Fixed Footer for Bookmarks -->
-    <div class="fixed-footer">
-      <div id="bookmark-counter" class="text-slate-700 font-semibold mb-1"></div>
-      <p class="text-slate-600 text-sm">Swipe left or right to navigate</p>
+    <h2 class="text-xl font-bold mb-3 text-header">About App</h2>
+    <div class="p-3 mb-6 rounded-lg bg-slate-100 text-sm text-secondary">
+      A simple flashcard-style GRE vocabulary learning app. Swipe to navigate words, and bookmark your favorites.
     </div>
-  </div>
+
+    <h2 class="text-xl font-bold mb-3 text-header">Bookmarks</h2>
+    <ul id="bookmarks-list" class="space-y-2 text-main"></ul>
+  </aside>
 
   <!-- Overlay -->
   <div id="overlay" class="overlay"></div>
 
   <!-- Main Card -->
-  <main class="max-w-md mx-auto px-4 py-6 pb-20"> <!-- pb-20 for footer space -->
+  <main class="max-w-md mx-auto px-4 py-6">
     <div id="card" class="card-inner relative">
-      <button id="bookmark-btn" class="absolute top-3 right-3 bg-white p-2 rounded-lg shadow hover:bg-gray-50 transition">
-        <!-- Bookmark icon -->
-        <svg id="bm-outline" xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <button id="bookmark-btn" class="absolute top-3 right-3 bg-white p-2 rounded-lg shadow">
+        <svg id="bm-outline" xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v16l7-5 7 5V3z"/>
         </svg>
         <svg id="bm-fill" xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-yellow-500 hidden" viewBox="0 0 24 24" fill="currentColor">
@@ -151,329 +48,63 @@
         </svg>
       </button>
 
-      <h2 id="word-display" class="text-3xl font-extrabold text-slate-900 mb-4"></h2>
-      <p id="sentence-display" class="text-slate-700 text-lg leading-relaxed mb-6"></p>
+      <h2 id="word-display" class="text-3xl font-extrabold text-header"></h2>
+      <p id="sentence-display" class="mt-4 text-main"></p>
 
-      <div class="space-y-4">
+      <div class="mt-6 space-y-4">
         <div>
-          <h3 class="font-semibold text-indigo-600 text-sm uppercase tracking-wide mb-1">Meaning</h3>
-          <p id="meaning-display" class="text-slate-800"></p>
+          <h3 class="font-semibold text-accent">Meaning</h3>
+          <p id="meaning-display" class="text-main"></p>
         </div>
         <div>
-          <h3 class="font-semibold text-indigo-600 text-sm uppercase tracking-wide mb-1">Root breakdown</h3>
-          <p id="root-display" class="italic text-slate-600"></p>
+          <h3 class="font-semibold text-accent">Root breakdown</h3>
+          <p id="root-display" class="italic text-secondary"></p>
         </div>
         <div>
-          <h3 class="font-semibold text-indigo-600 text-sm uppercase tracking-wide mb-1">Synonyms</h3>
-          <p id="synonyms-display" class="text-slate-800"></p>
-        </div>
-        <div>
-          <h3 class="font-semibold text-indigo-600 text-sm uppercase tracking-wide mb-1">Antonyms</h3>
-          <p id="antonyms-display" class="text-slate-800"></p>
+          <h3 class="font-semibold text-accent">Synonyms</h3>
+          <p id="synonyms-display" class="text-main"></p>
         </div>
       </div>
     </div>
+
+    <!-- Counter -->
+    <div class="mt-6 flex items-center justify-center">
+      <div id="card-counter" class="text-secondary font-semibold">&lt;1/1&gt;</div>
+    </div>
   </main>
 
-  <!-- Fixed Footer -->
-  <div class="fixed-footer">
-    <div id="card-counter" class="text-slate-700 font-semibold mb-1">1 / 1</div>
-    <p class="text-slate-600 text-sm">Swipe left or right to navigate</p>
-  </div>
+  <!-- Bookmark Overlay -->
+  <div id="bookmark-overlay">
+    <div id="bookmark-header">
+      <h1 class="text-header">Bookmarks</h1>
+      <div id="bookmark-close" class="text-header">✕</div>
+    </div>
+    <main class="max-w-md mx-auto px-4 py-6 flex-grow flex items-center">
+      <div id="bookmark-card" class="card-inner relative w-full">
+        <h2 id="bm-word-display" class="text-3xl font-extrabold text-header"></h2>
+        <p id="bm-sentence-display" class="mt-4 text-main"></p>
 
-  <script>
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("service-worker.js")
-        .then(() => console.log("Service Worker registered"))
-        .catch(err => console.error("SW registration failed:", err));
-    }
-
-    const card = document.getElementById('card');
-    const wordDisplay = document.getElementById('word-display');
-    const sentenceDisplay = document.getElementById('sentence-display');
-    const meaningDisplay = document.getElementById('meaning-display');
-    const rootDisplay = document.getElementById('root-display');
-    const synonymsDisplay = document.getElementById('synonyms-display');
-    const antonymsDisplay = document.getElementById('antonyms-display');
-    const counter = document.getElementById('card-counter');
-    const bookmarkBtn = document.getElementById('bookmark-btn');
-    const bmOutline = document.getElementById('bm-outline');
-    const bmFill = document.getElementById('bm-fill');
-    const sidebar = document.getElementById('sidebar');
-    const bookmarkReader = document.getElementById('bookmark-reader');
-    const menuBtn = document.getElementById('menu-btn');
-    const overlay = document.getElementById('overlay');
-    const bookmarksList = document.getElementById('bookmarks-list');
-
-    let wordsData = [];
-    let currentIndex = 0;
-    let bookmarkIndex = 0;
-    let bookmarkData = [];
-
-    // Fisher-Yates shuffle algorithm
-    function shuffleArray(array) {
-      const shuffled = [...array];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
-      return shuffled;
-    }
-
-    // Sidebar toggle
-    function openSidebar() {
-      sidebar.classList.add('open');
-      overlay.classList.add('show');
-      document.body.classList.add('sidebar-open');
-    }
-    
-    function closeSidebar() {
-      sidebar.classList.remove('open');
-      overlay.classList.remove('show');
-      document.body.classList.remove('sidebar-open');
-    }
-    
-    menuBtn.addEventListener('click', openSidebar);
-    overlay.addEventListener('click', closeSidebar);
-
-    // Bookmarks
-    function updateBookmarkIcon() {
-      const isBm = !!wordsData[currentIndex].isBookmarked;
-      bmFill.classList.toggle("hidden", !isBm);
-      bmOutline.classList.toggle("hidden", isBm);
-    }
-
-    function renderBookmarks() {
-      bookmarksList.innerHTML = "";
-      const bookmarked = wordsData.filter(item => item.isBookmarked);
-
-      document.getElementById("bookmark-count").textContent = bookmarked.length;
-
-      if (bookmarked.length === 0) {
-        const li = document.createElement("li");
-        li.textContent = "No bookmarks yet";
-        li.className = "px-3 py-2 text-slate-500 italic";
-        bookmarksList.appendChild(li);
-        return;
-      }
-
-      bookmarked.forEach(item => {
-        const li = document.createElement("li");
-        li.textContent = item.word;
-        li.className = "px-3 py-2 rounded bg-slate-100 cursor-pointer hover:bg-slate-200 transition-colors";
-        li.addEventListener('click', () => {
-          openBookmarkReader(bookmarked, bookmarked.indexOf(item));
-          closeSidebar();
-        });
-        bookmarksList.appendChild(li);
-      });
-
-      localStorage.setItem("bookmarks", JSON.stringify(wordsData.map(w => w.isBookmarked)));
-    }
-
-    bookmarkBtn.addEventListener('click', () => {
-      let item = wordsData[currentIndex];
-      item.isBookmarked = !item.isBookmarked;
-      updateBookmarkIcon();
-      renderBookmarks();
-    });
-
-    // Bookmark Reader
-    function openBookmarkReader(data, index) {
-      bookmarkData = data;
-      bookmarkIndex = index;
-      renderBookmarkCard();
-      bookmarkReader.classList.remove("hidden");
-      document.body.classList.add('sidebar-open');
-    }
-
-    function renderBookmarkCard() {
-      const item = bookmarkData[bookmarkIndex];
-      document.getElementById("bookmark-card").innerHTML = `
-        <h2 class="text-3xl font-extrabold text-slate-900 mb-4">${item.word}</h2>
-        <p class="text-slate-700 text-lg leading-relaxed mb-6">${item.sentence.replace(
-          new RegExp(item.word, "gi"),
-          (match) => `<span class="highlight">${match}</span>`
-        )}</p>
-        <div class="space-y-4">
+        <div class="mt-6 space-y-4">
           <div>
-            <h3 class="font-semibold text-indigo-600 text-sm uppercase tracking-wide mb-1">Meaning</h3>
-            <p>${item.english}</p>
+            <h3 class="font-semibold text-accent">Meaning</h3>
+            <p id="bm-meaning-display" class="text-main"></p>
           </div>
           <div>
-            <h3 class="font-semibold text-indigo-600 text-sm uppercase tracking-wide mb-1">Root breakdown</h3>
-            <p class="italic text-slate-600">${item.root}</p>
+            <h3 class="font-semibold text-accent">Root breakdown</h3>
+            <p id="bm-root-display" class="italic text-secondary"></p>
           </div>
           <div>
-            <h3 class="font-semibold text-indigo-600 text-sm uppercase tracking-wide mb-1">Synonyms</h3>
-            <p>${item.synonyms.join(", ")}</p>
-          </div>
-          <div>
-            <h3 class="font-semibold text-indigo-600 text-sm uppercase tracking-wide mb-1">Antonyms</h3>
-            <p>${item.antonyms.join(", ")}</p>
+            <h3 class="font-semibold text-accent">Synonyms</h3>
+            <p id="bm-synonyms-display" class="text-main"></p>
           </div>
         </div>
-      `;
-      document.getElementById("bookmark-counter").textContent =
-        `${bookmarkIndex + 1} / ${bookmarkData.length}`;
-    }
+      </div>
+    </main>
+    <div class="pb-4 text-center">
+      <div id="bm-card-counter" class="text-secondary font-semibold">&lt;1/1&gt;</div>
+    </div>
+  </div>
 
-    document.getElementById("bookmark-close-btn").addEventListener("click", () => {
-      bookmarkReader.classList.add("hidden");
-      document.body.classList.remove('sidebar-open');
-    });
-
-    // Render card with animation
-    function renderCard(direction = 'none') {
-      const item = wordsData[currentIndex];
-      
-      // Remove previous animations
-      card.classList.remove('card-slide-left', 'card-slide-right');
-      
-      // Force reflow
-      void card.offsetWidth;
-      
-      // Add new animation
-      if (direction === 'next') {
-        card.classList.add('card-slide-left');
-      } else if (direction === 'prev') {
-        card.classList.add('card-slide-right');
-      }
-
-      wordDisplay.textContent = item.word;
-      sentenceDisplay.innerHTML = item.sentence.replace(
-        new RegExp(item.word, "gi"),
-        (match) => `<span class="highlight">${match}</span>`
-      );
-      meaningDisplay.textContent = item.english;
-      rootDisplay.textContent = item.root;
-      synonymsDisplay.textContent = item.synonyms.join(", ");
-      antonymsDisplay.textContent = item.antonyms.join(", ");
-      counter.textContent = `${currentIndex + 1} / ${wordsData.length}`;
-      updateBookmarkIcon();
-
-      localStorage.setItem("lastIndex", currentIndex);
-    }
-
-    // Improved swipe gestures for main card
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let isSwiping = false;
-
-    card.addEventListener("touchstart", (e) => {
-      touchStartX = e.changedTouches[0].screenX;
-      touchStartY = e.changedTouches[0].screenY;
-      isSwiping = true;
-    }, { passive: true });
-
-    card.addEventListener("touchmove", (e) => {
-      if (!isSwiping) return;
-      
-      const touchX = e.changedTouches[0].screenX;
-      const touchY = e.changedTouches[0].screenY;
-      const diffX = touchStartX - touchX;
-      const diffY = touchStartY - touchY;
-      
-      // Only prevent default if it's a horizontal swipe
-      if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
-        e.preventDefault();
-      }
-    }, { passive: false });
-
-    card.addEventListener("touchend", (e) => {
-      if (!isSwiping) return;
-      
-      const touchEndX = e.changedTouches[0].screenX;
-      const touchEndY = e.changedTouches[0].screenY;
-      const diffX = touchStartX - touchEndX;
-      const diffY = touchStartY - touchEndY;
-      
-      // Only register as swipe if primarily horizontal
-      if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
-        e.preventDefault();
-        if (diffX > 0) {
-          // Swipe left - next
-          if (currentIndex < wordsData.length - 1) {
-            currentIndex++;
-            renderCard('next');
-          }
-        } else {
-          // Swipe right - previous
-          if (currentIndex > 0) {
-            currentIndex--;
-            renderCard('prev');
-          }
-        }
-      }
-      
-      isSwiping = false;
-    }, { passive: false });
-
-    // Load words and shuffle
-    fetch("words.json")
-      .then(res => res.json())
-      .then(data => {
-        // Shuffle the words array
-        wordsData = shuffleArray(data);
-        
-        const savedBm = JSON.parse(localStorage.getItem("bookmarks"));
-        if (savedBm) {
-          // Apply saved bookmarks to shuffled array
-          const originalData = data; // Keep original order for bookmark matching
-          wordsData.forEach((w, i) => {
-            const originalIndex = originalData.findIndex(item => item.word === w.word);
-            w.isBookmarked = savedBm[originalIndex] || false;
-          });
-        }
-        
-        const lastIndex = localStorage.getItem("lastIndex");
-        currentIndex = lastIndex ? parseInt(lastIndex) : 0;
-        renderCard();
-        renderBookmarks();
-      })
-      .catch(err => {
-        console.error('Failed to load words:', err);
-        wordDisplay.textContent = "Error loading words";
-      });
-
-    // Keyboard navigation for desktop users
-    document.addEventListener('keydown', (e) => {
-      if (bookmarkReader.classList.contains('hidden')) {
-        if (e.key === 'ArrowLeft' && currentIndex > 0) {
-          currentIndex--;
-          renderCard('prev');
-        } else if (e.key === 'ArrowRight' && currentIndex < wordsData.length - 1) {
-          currentIndex++;
-          renderCard('next');
-        }
-      }
-    });
-
-    // Bookmark reader swipe gestures - FIXED
-    let bookmarkTouchStartX = 0;
-    
-    // Add swipe to the entire bookmark reader main area
-    const bookmarkMainArea = bookmarkReader.querySelector('main');
-    bookmarkMainArea.addEventListener("touchstart", (e) => {
-      bookmarkTouchStartX = e.changedTouches[0].screenX;
-    }, { passive: true });
-
-    bookmarkMainArea.addEventListener("touchend", (e) => {
-      const touchEndX = e.changedTouches[0].screenX;
-      const diffX = bookmarkTouchStartX - touchEndX;
-      
-      if (Math.abs(diffX) > 50 && bookmarkData.length > 0) {
-        if (diffX > 0 && bookmarkIndex < bookmarkData.length - 1) {
-          // Swipe left - next bookmark
-          bookmarkIndex++;
-          renderBookmarkCard();
-        } else if (diffX < 0 && bookmarkIndex > 0) {
-          // Swipe right - previous bookmark
-          bookmarkIndex--;
-          renderBookmarkCard();
-        }
-      }
-    }, { passive: true });
-  </script>
+  <script src="app.js"></script>
 </body>
 </html>
