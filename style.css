@@ -1,0 +1,164 @@
+:root {
+  --main-bg: #E7F2E4;        /* main deck background */
+  --main-card-bg: #F5F5F0;   /* main card */
+  --bm-bg: #B2C6D5;          /* bookmark overlay background */
+  --bm-card-bg: #F9F5F0;     /* bookmark overlay card */
+  --sidebar-bg: #B2C6D5;        /* sidebar */
+  --header-bg: #B2C6D5;         /* header */
+  --highlight-bg: #ffff3e;      /* highlighted word background */
+
+  /* Font colors */
+  --main-text: #152945;      /* body text (slate-800) */
+  --header-text: #060000;    /* main headings (slate-900) */
+  --accent-text: #4338ca;    /* accent headers (indigo-600) */
+  --secondary-text: #6b7280; /* roots / lighter details (slate-600/700) */
+  --muted-text: #9ca3af;     /* very light gray, optional */
+}
+
+/* Text styles using variables */
+.text-main {
+  color: var(--main-text);
+}
+.text-header {
+  color: var(--header-text);
+}
+.text-accent {
+  color: var(--accent-text);
+}
+.text-secondary {
+  color: var(--secondary-text);
+}
+.text-muted {
+  color: var(--muted-text);
+}
+
+
+
+body {
+  background-color: var(--main-bg);
+  background-image: url("data:image/png;base64,...");
+  background-repeat: repeat;
+  background-size: auto;
+  background-blend-mode: multiply; /* or overlay for softer effect */
+}
+
+/* Global body */
+body {
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  height: 100vh;
+  overflow: hidden; /* disable scrolling except sidebar */
+  background: var(--main-bg);
+  transition: background-color 0.4s ease;
+}
+
+/* Card */
+.card-inner {
+  border-radius: 20px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+  background: var(--main-card-bg);
+  padding: 1.25rem;
+  transition: transform 0.3s cubic-bezier(0.25,1,0.5,1), opacity 0.3s ease, background-color 0.4s ease;
+}
+
+/* Highlight word */
+.highlight {
+  background: var(--highlight-bg);
+  padding: 0 4px;
+  border-radius: 4px;
+}
+
+/* Sidebar */
+.sidebar {
+  position: fixed;
+  top: 0; right: -300px;
+  width: 300px; height: 100%;
+  background: var(--sidebar-bg);
+  box-shadow: -2px 0 8px rgba(0,0,0,0.1);
+  transition: right 0.3s ease;
+  z-index: 50;
+  padding: 1rem;
+  overflow-y: auto;
+}
+.sidebar.open { right: 0; }
+
+/* Overlay (background dim when sidebar open) */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.3);
+  display: none;
+  z-index: 40;
+}
+.overlay.show { display: block; }
+
+/* Bookmark overlay */
+#bookmark-overlay {
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: var(--bm-bg);
+  display: none;
+  flex-direction: column;
+  transition: background-color 0.4s ease;
+  z-index: 60;
+}
+#bookmark-overlay.active { display: flex; }
+
+#bookmark-overlay .card-inner {
+  background: var(--bm-card-bg);
+}
+
+/* Bookmark overlay header */
+#bookmark-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+}
+#bookmark-header h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #5a4d2f;
+}
+#bookmark-close {
+  font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* Header background */
+header {
+  background: var(--header-bg);
+}
+
+/* Bookmark list items with remove buttons */
+#bookmarks-list li {
+  transition: background-color 0.2s ease;
+  cursor: pointer;
+}
+
+/* Remove button styling */
+#bookmarks-list button {
+  transition: transform 0.2s ease;
+}
+
+#bookmarks-list button:hover {
+  transform: scale(1.2);
+}
+
+/* Bookmark list items with remove buttons */
+#bookmarks-list li {
+  transition: background-color 0.2s ease;
+  cursor: pointer;
+}
+
+/* Remove button styling */
+#bookmarks-list button {
+  transition: all 0.2s ease;
+  border-radius: 4px;
+}
+
+#bookmarks-list button:hover {
+  transform: scale(1.2);
+  background-color: rgba(239, 68, 68, 0.1);
+}
