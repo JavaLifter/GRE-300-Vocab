@@ -1,22 +1,32 @@
-const CACHE_NAME = "vocab-cache-v1";
-const ASSETS = [
-  "/",
-  "/index.html",
-  "/words.json",
-  "/icon.png",
-  "/splash.png"
+// service-worker.js
+const CACHE_NAME = 'gre-vocab-v1';
+const urlsToCache = [
+  './',
+  './index.html',
+  './style.css',
+  './app.js',
+  './words.json',
+  './manifest.json',
+  './icon1.png',
+  './icon2.png'
 ];
 
-// Install event - cache files
-self.addEventListener("install", (event) => {
+self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(urlsToCache))
   );
 });
 
-// Fetch event - serve from cache first
-self.addEventListener("fetch", (event) => {
+self.addEventListener('fetch', (event) => {
   event.respondWith(
-    caches.match(event.request).then((response) => response || fetch(event.request))
+    caches.match(event.request)
+      .then((response) => {
+        if (response) {
+          return response;
+        }
+        return fetch(event.request);
+      }
+    )
   );
 });
