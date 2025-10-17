@@ -333,7 +333,7 @@
       isSwiping = false;
 
       const diff = currentX - startX;
-      const threshold = 60; // Reduced threshold for better mobile feel
+      const threshold = 40; // Reduced threshold for better mobile feel
 
       if (diff < -threshold) {
         // Swipe left - next
