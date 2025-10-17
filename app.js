@@ -46,16 +46,8 @@
   let bmList = []; // array of items (references to objects from wordsData)
   let bmIndex = 0; // index inside bmList
 
-  // Gesture tracking
-  let dragging = false;
-  let startX = 0;
-  let startY = 0;
-  let currentTranslate = 0;
-  const SWIPE_THRESHOLD_PX = 80; // min px to count as swipe (will also adapt to width)
-
-  // Easing and timing (match CSS)
-  const TRANSITION_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
-  const ANIM_MS = 320;
+  // Timing
+  const ANIM_MS = 300;
 
   // Utility -----------------------------------------------------------------
   function clampIndex(i, len) {
@@ -289,218 +281,145 @@
   });
 
   // Navigation functions with nice animation --------------------------------
-  function animateMainTransition(direction, newIndex) {
-    if (!card) return;
-    const width = card.offsetWidth || 300;
-    const outX = direction === 'next' ? -window.innerWidth : window.innerWidth;
-
-    // animate out
-    card.style.transition = `transform ${ANIM_MS}ms ${TRANSITION_EASE}, opacity ${ANIM_MS}ms ease`;
-    card.style.transform = `translateX(${outX}px)`;
-    card.style.opacity = '0';
-
-    setTimeout(() => {
-      // swap content
-      currentIndex = clampIndex(newIndex, wordsData.length);
-      renderCard();
-
-      // place offscreen on the opposite side
-      card.style.transition = 'none';
-      const inX = direction === 'next' ? window.innerWidth : -window.innerWidth;
-      card.style.transform = `translateX(${inX}px)`;
-      card.style.opacity = '1';
-
-      // force repaint then animate back to center
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          card.style.transition = `transform ${ANIM_MS}ms ${TRANSITION_EASE}`;
-          card.style.transform = 'translateX(0)';
-        });
-      });
-    }, ANIM_MS);
-  }
-
   function navigateMain(direction) {
     if (!wordsData || wordsData.length === 0) return;
     const len = wordsData.length;
     const nextIndex = direction === 'next' ? clampIndex(currentIndex + 1, len) : clampIndex(currentIndex - 1, len);
-    animateMainTransition(direction, nextIndex);
-  }
-
-  function animateBookmarkTransition(direction, newBmIndex) {
-    if (!bmCard) return;
-    const outX = direction === 'next' ? -window.innerWidth : window.innerWidth;
-    bmCard.style.transition = `transform ${ANIM_MS}ms ${TRANSITION_EASE}, opacity ${ANIM_MS}ms ease`;
-    bmCard.style.transform = `translateX(${outX}px)`;
-    bmCard.style.opacity = '0';
-
-    setTimeout(() => {
-      bmIndex = clampIndex(newBmIndex, bmList.length);
-      renderBookmarkCard();
-
-      bmCard.style.transition = 'none';
-      const inX = direction === 'next' ? window.innerWidth : -window.innerWidth;
-      bmCard.style.transform = `translateX(${inX}px)`;
-      bmCard.style.opacity = '1';
-
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          bmCard.style.transition = `transform ${ANIM_MS}ms ${TRANSITION_EASE}`;
-          bmCard.style.transform = 'translateX(0)';
-        });
-      });
-    }, ANIM_MS);
+    
+    // Simple content update without complex animation
+    currentIndex = nextIndex;
+    renderCard();
   }
 
   function navigateBookmarks(direction) {
     if (!bmList || bmList.length === 0) return;
     const nextBmIndex = direction === 'next' ? clampIndex(bmIndex + 1, bmList.length) : clampIndex(bmIndex - 1, bmList.length);
-    animateBookmarkTransition(direction, nextBmIndex);
+    
+    // Simple content update
+    bmIndex = nextBmIndex;
+    renderBookmarkCard();
   }
 
-  // Touch handling for card (main deck) ------------------------------------
-  function attachTouchHandlers(element, onNavigateNext, onNavigatePrev) {
-    let localDragging = false;
-    let sX = 0;
-    let sY = 0;
-    let dx = 0;
-    let dy = 0;
+  // Simple swipe handlers
+  function attachSimpleSwipe(element, onSwipeLeft, onSwipeRight) {
+    let startX = 0;
+    let currentX = 0;
+    let isSwiping = false;
 
-    element.addEventListener('touchstart', (ev) => {
-      if (!ev.touches || ev.touches.length !== 1) return;
-      localDragging = true;
-      sX = ev.touches[0].clientX;
-      sY = ev.touches[0].clientY;
+    // Touch events
+    element.addEventListener('touchstart', (e) => {
+      if (e.touches.length !== 1) return;
+      startX = e.touches[0].clientX;
+      currentX = startX;
+      isSwiping = true;
       element.style.transition = 'none';
-      // capture variables in outer scope
-      dragging = true;
-      startX = sX;
-      startY = sY;
-      currentTranslate = 0;
-    }, {passive: true});
+    }, { passive: true });
 
-    element.addEventListener('touchmove', (ev) => {
-      if (!localDragging) return;
-      const t = ev.touches[0];
-      dx = t.clientX - sX;
-      dy = t.clientY - sY;
-
-      // if horizontal movement is dominant, prevent page from also panning
-      if (Math.abs(dx) > Math.abs(dy)) {
-        ev.preventDefault(); // IMPORTANT: stops page from moving (only card moves)
-        currentTranslate = dx;
-        // rotate slightly for fun
-        const rotate = dx / 20;
-        element.style.transform = `translateX(${dx}px) rotate(${rotate}deg)`;
-      } else {
-        // vertical gesture — do nothing here (sidebar/overlay will handle vertical scrolling)
-        // but we don't want to allow page scroll, page body is hidden in our CSS
+    element.addEventListener('touchmove', (e) => {
+      if (!isSwiping) return;
+      currentX = e.touches[0].clientX;
+      const diff = currentX - startX;
+      
+      // Only move horizontally, prevent vertical scrolling during horizontal swipe
+      if (Math.abs(diff) > 10) {
+        e.preventDefault();
       }
-    }, {passive: false});
+      
+      element.style.transform = `translateX(${diff}px)`;
+    }, { passive: false });
 
-    element.addEventListener('touchend', (ev) => {
-      if (!localDragging) return;
-      localDragging = false;
-      dragging = false;
+    element.addEventListener('touchend', () => {
+      if (!isSwiping) return;
+      isSwiping = false;
 
-      const width = element.offsetWidth || window.innerWidth;
-      const threshold = Math.max(SWIPE_THRESHOLD_PX, width * 0.20);
+      const diff = currentX - startX;
+      const threshold = 60; // Reduced threshold for better mobile feel
 
-      if (currentTranslate <= -threshold) {
-        // swipe left = next
-        element.style.transition = `transform ${ANIM_MS}ms ${TRANSITION_EASE}, opacity ${ANIM_MS}ms ease`;
-        element.style.transform = `translateX(${-window.innerWidth}px)`;
-        setTimeout(() => onNavigateNext(), ANIM_MS);
-      } else if (currentTranslate >= threshold) {
-        // swipe right = prev
-        element.style.transition = `transform ${ANIM_MS}ms ${TRANSITION_EASE}, opacity ${ANIM_MS}ms ease`;
-        element.style.transform = `translateX(${window.innerWidth}px)`;
-        setTimeout(() => onNavigatePrev(), ANIM_MS);
+      if (diff < -threshold) {
+        // Swipe left - next
+        element.style.transition = `transform ${ANIM_MS}ms ease-out`;
+        element.style.transform = `translateX(-100%)`;
+        setTimeout(() => {
+          onSwipeLeft();
+          // Reset position after navigation
+          element.style.transition = 'none';
+          element.style.transform = 'translateX(0)';
+        }, ANIM_MS);
+      } else if (diff > threshold) {
+        // Swipe right - prev
+        element.style.transition = `transform ${ANIM_MS}ms ease-out`;
+        element.style.transform = `translateX(100%)`;
+        setTimeout(() => {
+          onSwipeRight();
+          // Reset position after navigation
+          element.style.transition = 'none';
+          element.style.transform = 'translateX(0)';
+        }, ANIM_MS);
       } else {
-        // snapback
-        element.style.transition = `transform ${ANIM_MS}ms ${TRANSITION_EASE}`;
+        // Return to center
+        element.style.transition = `transform ${ANIM_MS}ms ease-out`;
         element.style.transform = 'translateX(0)';
       }
-      currentTranslate = 0;
-    }, {passive: true});
+    }, { passive: true });
   }
 
-  // Attach touch handlers to main card and bookmark card
-  attachTouchHandlers(card, () => navigateMain('next'), () => navigateMain('prev'));
-  attachTouchHandlers(bmCard, () => navigateBookmarks('next'), () => navigateBookmarks('prev'));
+  // Mouse events for desktop
+  function attachMouseSwipe(element, onSwipeLeft, onSwipeRight) {
+    let startX = 0;
+    let currentX = 0;
+    let isDragging = false;
 
-  // Desktop mouse dragging (optional): allow click-drag on desktop for convenience
-  (function attachMouseDragDesktop(el, onNext, onPrev) {
-    let isDown = false;
-    let sX = 0;
-    let sY = 0;
-    let moved = 0;
-    el.addEventListener('mousedown', (ev) => {
-      isDown = true;
-      sX = ev.clientX;
-      sY = ev.clientY;
-      el.style.transition = 'none';
+    element.addEventListener('mousedown', (e) => {
+      startX = e.clientX;
+      currentX = startX;
+      isDragging = true;
+      element.style.transition = 'none';
     });
-    window.addEventListener('mousemove', (ev) => {
-      if (!isDown) return;
-      const dx = ev.clientX - sX;
-      moved = dx;
-      el.style.transform = `translateX(${dx}px) rotate(${dx/20}deg)`;
-    });
-    window.addEventListener('mouseup', (ev) => {
-      if (!isDown) return;
-      isDown = false;
-      const thresh = Math.max(SWIPE_THRESHOLD_PX, (el.offsetWidth || window.innerWidth) * 0.2);
-      if (moved <= -thresh) {
-        el.style.transition = `transform ${ANIM_MS}ms ${TRANSITION_EASE}, opacity ${ANIM_MS}ms ease`;
-        el.style.transform = `translateX(${-window.innerWidth}px)`;
-        setTimeout(onNext, ANIM_MS);
-      } else if (moved >= thresh) {
-        el.style.transition = `transform ${ANIM_MS}ms ${TRANSITION_EASE}, opacity ${ANIM_MS}ms ease`;
-        el.style.transform = `translateX(${window.innerWidth}px)`;
-        setTimeout(onPrev, ANIM_MS);
-      } else {
-        el.style.transition = `transform ${ANIM_MS}ms ${TRANSITION_EASE}`;
-        el.style.transform = `translateX(0)`;
-      }
-      moved = 0;
-    });
-  })(card, () => navigateMain('next'), () => navigateMain('prev'));
 
-  (function attachMouseDragDesktopBM() {
-    // separate small wrapper for bookmark card
-    const el = bmCard;
-    let isDown = false, sX = 0, moved = 0;
-    el.addEventListener('mousedown', (ev) => {
-      isDown = true;
-      sX = ev.clientX;
-      el.style.transition = 'none';
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      currentX = e.clientX;
+      const diff = currentX - startX;
+      element.style.transform = `translateX(${diff}px)`;
     });
-    window.addEventListener('mousemove', (ev) => {
-      if (!isDown) return;
-      const dx = ev.clientX - sX;
-      moved = dx;
-      el.style.transform = `translateX(${dx}px) rotate(${dx/20}deg)`;
-    });
-    window.addEventListener('mouseup', (ev) => {
-      if (!isDown) return;
-      isDown = false;
-      const thresh = Math.max(SWIPE_THRESHOLD_PX, (el.offsetWidth || window.innerWidth) * 0.2);
-      if (moved <= -thresh) {
-        el.style.transition = `transform ${ANIM_MS}ms ${TRANSITION_EASE}, opacity ${ANIM_MS}ms ease`;
-        el.style.transform = `translateX(${-window.innerWidth}px)`;
-        setTimeout(() => navigateBookmarks('next'), ANIM_MS);
-      } else if (moved >= thresh) {
-        el.style.transition = `transform ${ANIM_MS}ms ${TRANSITION_EASE}, opacity ${ANIM_MS}ms ease`;
-        el.style.transform = `translateX(${window.innerWidth}px)`;
-        setTimeout(() => navigateBookmarks('prev'), ANIM_MS);
+
+    document.addEventListener('mouseup', () => {
+      if (!isDragging) return;
+      isDragging = false;
+
+      const diff = currentX - startX;
+      const threshold = 60;
+
+      if (diff < -threshold) {
+        element.style.transition = `transform ${ANIM_MS}ms ease-out`;
+        element.style.transform = `translateX(-100%)`;
+        setTimeout(() => {
+          onSwipeLeft();
+          element.style.transition = 'none';
+          element.style.transform = 'translateX(0)';
+        }, ANIM_MS);
+      } else if (diff > threshold) {
+        element.style.transition = `transform ${ANIM_MS}ms ease-out`;
+        element.style.transform = `translateX(100%)`;
+        setTimeout(() => {
+          onSwipeRight();
+          element.style.transition = 'none';
+          element.style.transform = 'translateX(0)';
+        }, ANIM_MS);
       } else {
-        el.style.transition = `transform ${ANIM_MS}ms ${TRANSITION_EASE}`;
-        el.style.transform = `translateX(0)`;
+        element.style.transition = `transform ${ANIM_MS}ms ease-out`;
+        element.style.transform = 'translateX(0)';
       }
-      moved = 0;
     });
-  })();
+  }
+
+  // Attach swipe handlers to main card and bookmark card
+  attachSimpleSwipe(card, () => navigateMain('next'), () => navigateMain('prev'));
+  attachSimpleSwipe(bmCard, () => navigateBookmarks('next'), () => navigateBookmarks('prev'));
+
+  // Also attach mouse events for desktop
+  attachMouseSwipe(card, () => navigateMain('next'), () => navigateMain('prev'));
+  attachMouseSwipe(bmCard, () => navigateBookmarks('next'), () => navigateBookmarks('prev'));
 
   // Hook up bookmark button
   bookmarkBtn && bookmarkBtn.addEventListener('click', () => {
@@ -518,7 +437,7 @@
     try {
       if (localStorage.getItem('seenHint') === '1') return;
       // small left nudge and back
-      card.style.transition = `transform 400ms ${TRANSITION_EASE}`;
+      card.style.transition = `transform 400ms ease-out`;
       card.style.transform = 'translateX(-12px)';
       setTimeout(() => {
         card.style.transform = 'translateX(0)';
@@ -549,12 +468,10 @@
   loadWords();
 
   // Make sure main card doesn't cause page scrolling on mobile:
-  // (index.html sets body overflow hidden already; but if not, we ensure the card handles horizontal only)
   document.addEventListener('touchmove', (e) => {
     // do nothing here — touchmove handlers on card preventDefault when horizontal.
     // we keep this listener passive to avoid interfering.
   }, {passive: true});
-
 
   // Small niceties: clicking bookmark item in sidebar will open overlay at that bookmark (handled in renderBookmarksList)
   // clicking outside the overlay's close or the overlay's close button closes it:
@@ -588,5 +505,18 @@
     // detect if the click target is the overlay itself (or the header area outside card)
     if (ev.target === bmOverlay) closeBookmarksOverlay();
   });
+
+  // Register service worker for PWA
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/service-worker.js')
+        .then((registration) => {
+          console.log('SW registered: ', registration);
+        })
+        .catch((registrationError) => {
+          console.log('SW registration failed: ', registrationError);
+        });
+    });
+  }
 
 })();
