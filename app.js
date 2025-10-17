@@ -47,7 +47,7 @@
   let bmIndex = 0; // index inside bmList
 
   // Timing
-  const ANIM_MS = 300;
+  const ANIM_MS = 200;
 
   // Utility -----------------------------------------------------------------
   function clampIndex(i, len) {
