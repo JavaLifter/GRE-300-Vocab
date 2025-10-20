@@ -7,6 +7,10 @@
    - keyboard arrow nav (desktop)
    - initial nudge hint, snapback, smooth transitions
    - prevents page from scrolling on card swipes; only sidebar and overlay scroll vertically
+
+   --- NEW CHANGES ---
+   - ANIM_MS reduced for faster card swipe animation on mobile.
+   - Deck shuffling implemented using shuffledIndices array, persisted via localStorage.
 */
 (() => {
   // Elements
@@ -33,417 +37,444 @@
   const bmMeaningDisplay = document.getElementById('bm-meaning-display');
   const bmRootDisplay = document.getElementById('bm-root-display');
   const bmSynonymsDisplay = document.getElementById('bm-synonyms-display');
-  const bmCardCounter = document.getElementById('bm-card-counter');
-  const bmClose = document.getElementById('bookmark-close');
+  const bmCounter = document.getElementById('bookmark-counter');
+  const bmCloseBtn = document.getElementById('bookmark-close');
+  const bmRemoveBtn = document.getElementById('bookmark-remove');
 
   // State
   let wordsData = [];
   let currentIndex = 0;
-  let bookmarkedIndices = []; // indices in wordsData for bookmarked items
+  let bookmarkedIndices = [];
   let lastIndexBeforeOverlay = null;
+  // NEW: Array to store the shuffled order of indices
+  let shuffledIndices = []; 
+  let currentBookmarkIndex = 0;
+  let isSwiping = false;
+  let startX = 0;
+  let startY = 0;
+  let initialX = 0;
 
-  // Bookmark overlay state
-  let bmList = []; // array of items (references to objects from wordsData)
-  let bmIndex = 0; // index inside bmList
+  // Timing (Reduced for faster mobile animation)
+  const ANIM_MS = 150; 
+  const SWIPE_THRESHOLD = 50;
+  const NUDGE_DISTANCE = 30;
 
-  // Timing
-  const ANIM_MS = 200;
+  // Utility Functions ------------------------------------------------------
 
-  // Utility -----------------------------------------------------------------
-  function clampIndex(i, len) {
-    if (len === 0) return 0;
-    return ((i % len) + len) % len;
+  /** Shuffles array in-place using Fisher-Yates algorithm. */
+  function shuffle(array) {
+    let currentIndex = array.length, randomIndex;
+    while (currentIndex !== 0) {
+      randomIndex = Math.floor(Math.random() * currentIndex);
+      currentIndex--;
+      [array[currentIndex], array[randomIndex]] = [
+        array[randomIndex], array[currentIndex]
+      ];
+    }
+    return array;
+  }
+
+  // LocalStorage Helpers
+  function saveLastIndex() {
+    try {
+      localStorage.setItem('lastIndex', currentIndex.toString());
+    } catch (e) { console.warn('Could not save last index', e); }
+  }
+
+  function loadLastIndex() {
+    try {
+      const lastIndex = localStorage.getItem('lastIndex');
+      if (lastIndex) {
+        // Ensure loaded index is valid within the (shuffled) bounds
+        const idx = parseInt(lastIndex, 10);
+        if (idx >= 0 && idx < wordsData.length) {
+          currentIndex = idx;
+        }
+      }
+    } catch (e) { console.warn('Could not load last index', e); }
+  }
+  
+  // NEW: Save the shuffled order to persistence
+  function saveShuffledOrder() {
+    try {
+      localStorage.setItem('shuffledIndices', JSON.stringify(shuffledIndices));
+    } catch (e) { console.warn('Could not save shuffled order', e); }
+  }
+
+  // NEW: Load the shuffled order from persistence
+  function loadShuffledOrder() {
+    try {
+      const raw = localStorage.getItem('shuffledIndices');
+      if (!raw) return false;
+      const arr = JSON.parse(raw);
+      // Only load if the stored array is an array and matches the current data length
+      if (Array.isArray(arr) && arr.length === wordsData.length) {
+        shuffledIndices = arr;
+        return true;
+      }
+    } catch (e) { console.warn('Could not load shuffled order', e); }
+    return false;
   }
 
   function saveBookmarksToStorage() {
-    // Save boolean map of bookmarks (keeps persistent across sessions)
     try {
-      const map = wordsData.map(w => !!w.isBookmarked);
-      localStorage.setItem('bookmarks', JSON.stringify(map));
+      const bookmarksState = wordsData.map(d => d.isBookmarked);
+      localStorage.setItem('bookmarks', JSON.stringify(bookmarksState));
     } catch (e) { console.warn('Could not save bookmarks', e); }
   }
 
   function loadBookmarksFromStorage() {
     try {
-      const raw = localStorage.getItem('bookmarks');
-      if (!raw) return;
-      const arr = JSON.parse(raw);
-      if (Array.isArray(arr)) {
-        // apply, safeguarding lengths
-        for (let i = 0; i < Math.min(arr.length, wordsData.length); i++) {
-          wordsData[i].isBookmarked = !!arr[i];
+      const rawBookmarks = localStorage.getItem('bookmarks');
+      if (rawBookmarks) {
+        const bookmarksState = JSON.parse(rawBookmarks);
+        // Apply saved bookmark state to wordsData
+        if (Array.isArray(bookmarksState) && bookmarksState.length === wordsData.length) {
+          wordsData.forEach((d, index) => {
+            d.isBookmarked = bookmarksState[index];
+          });
         }
       }
     } catch (e) { console.warn('Could not load bookmarks', e); }
   }
 
-  function saveLastIndex() {
-    try { localStorage.setItem('lastIndex', String(currentIndex)); } catch (e) {}
-  }
-  function loadLastIndex() {
-    try {
-      const v = parseInt(localStorage.getItem('lastIndex'));
-      if (!Number.isNaN(v)) currentIndex = clampIndex(v, wordsData.length);
-    } catch (e) {}
+  // Card Rendering and Deck Navigation ---------------------------------------
+
+  /** Gets the word item based on the current index in the SHUFFLED deck */
+  function getCurrentWordItem() {
+    if (!wordsData || wordsData.length === 0) return null;
+    const originalWordIndex = shuffledIndices[currentIndex];
+    return wordsData[originalWordIndex];
   }
 
-  // Rendering ---------------------------------------------------------------
+  /** Gets the word item based on the index in the BOOKMARK list */
+  function getBookmarkWordItem(index) {
+    if (index < 0 || index >= bookmarkedIndices.length) return null;
+    const originalWordIndex = bookmarkedIndices[index];
+    return wordsData[originalWordIndex];
+  }
+
+  function highlightWord(text) {
+    // Wrap any word found in <strong> tags with a highlight span
+    return text.replace(/<strong>(.*?)<\/strong>/g, (match, word) => {
+      return `<strong class="highlight">${word}</strong>`;
+    });
+  }
+
   function renderCard() {
     if (!wordsData || wordsData.length === 0) {
-      wordDisplay.textContent = '';
-      sentenceDisplay.textContent = '';
-      meaningDisplay.textContent = '';
-      rootDisplay.textContent = '';
-      synonymsDisplay.textContent = '';
-      counter.textContent = `<0/0>`;
+      wordDisplay.textContent = "Loading...";
+      counter.textContent = "<0/0>";
       return;
     }
 
-    const item = wordsData[currentIndex];
+    // Get the item using the shuffled order
+    const item = getCurrentWordItem();
+    if (!item) return;
 
+    // Populate main card
     wordDisplay.textContent = item.word;
-    // Sentence may contain HTML (words.json uses <strong> tags). We'll use innerHTML,
-    // and additionally highlight the raw word occurrences (safe-ish because data is trusted local file).
-    
-    try {
-  // Create a regex that matches the word with any capitalization
-  const regex = new RegExp(`\\b${item.word}\\b`, 'gi');
-  sentenceDisplay.innerHTML = item.sentence.replace(regex, (match) => {
-    return `<span class="highlight">${match}</span>`;
-  });
-} catch (e) {
-  sentenceDisplay.innerHTML = item.sentence || '';
-}
-
+    sentenceDisplay.innerHTML = highlightWord(item.sentence || '');
     meaningDisplay.textContent = item.english || '';
-    rootDisplay.textContent = item.root || '';
-    synonymsDisplay.textContent = (item.synonyms || []).join(', ');
-    // antonyms intentionally omitted
-    counter.textContent = `<${currentIndex + 1}/${wordsData.length}>`;
+    rootDisplay.textContent = item.root || 'N/A';
+    synonymsDisplay.textContent = (item.synonyms || []).join(', ') || 'N/A';
 
+    // Update counter and storage
+    counter.textContent = `<${currentIndex + 1}/${wordsData.length}>`;
     updateBookmarkIcon();
     saveLastIndex();
   }
 
+  function changeCard(direction) {
+    if (wordsData.length === 0 || isSwiping) return;
+
+    currentIndex += direction;
+    // Loop back to start/end
+    if (currentIndex < 0) {
+      currentIndex = wordsData.length - 1;
+    } else if (currentIndex >= wordsData.length) {
+      currentIndex = 0;
+    }
+
+    renderCard();
+  }
+
   function updateBookmarkIcon() {
     if (!wordsData || wordsData.length === 0) return;
-    const isBm = !!wordsData[currentIndex].isBookmarked;
+    const item = getCurrentWordItem(); // Use the shuffled order
+    if (!item) return;
+
+    const isBm = !!item.isBookmarked;
     bmFill.classList.toggle('hidden', !isBm);
     bmOutline.classList.toggle('hidden', isBm);
   }
 
-  function renderBookmarksList() {
-  bookmarksList.innerHTML = '';
-  bookmarkedIndices = [];
-  wordsData.forEach((item, idx) => {
-    if (item.isBookmarked) {
-      bookmarkedIndices.push(idx);
-      const li = document.createElement('li');
-      li.className = 'flex items-center justify-between px-3 py-2 rounded bg-slate-100 hover:bg-slate-200';
-      
-      // Word text (clickable to open in overlay)
-      const wordSpan = document.createElement('span');
-      wordSpan.textContent = item.word;
-      wordSpan.className = 'cursor-pointer flex-grow';
-      wordSpan.addEventListener('click', (ev) => {
-        ev.preventDefault();
-        openBookmarksOverlayAtIndex(bookmarkedIndices.indexOf(idx));
-        closeSidebar();
-      });
-      
-      // Remove button (cross icon)
-      const removeBtn = document.createElement('button');
-      removeBtn.innerHTML = '✕';
-      removeBtn.className = 'text-red-500 hover:text-red-700 font-bold text-lg px-2';
-      removeBtn.setAttribute('aria-label', `Remove ${item.word} from bookmarks`);
-      removeBtn.addEventListener('click', (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation(); // Prevent triggering the wordSpan click
-        item.isBookmarked = false;
-        renderBookmarksList(); // Re-render the list
-        updateBookmarkIcon(); // Update main card icon if needed
-        saveBookmarksToStorage();
-        
-        // If bookmark overlay is open, refresh it
-        if (bmOverlay.classList.contains('active')) {
-          buildBookmarkList();
-          renderBookmarkCard();
-        }
-      });
-      
-      li.appendChild(wordSpan);
-      li.appendChild(removeBtn);
-      bookmarksList.appendChild(li);
-    }
-  });
-  saveBookmarksToStorage();
-}
-
   function toggleBookmark() {
-    const item = wordsData[currentIndex];
+    const item = getCurrentWordItem(); // Use the shuffled order
+    if (!item) return;
+
     item.isBookmarked = !item.isBookmarked;
+    saveBookmarksToStorage();
     updateBookmarkIcon();
     renderBookmarksList();
   }
 
-  // Sidebar open / close ----------------------------------------------------
-  function openSidebar() {
-    sidebar.classList.add('open');
-    overlay.classList.add('show');
+  // Sidebar Bookmarks List -------------------------------------------------
+
+  function renderBookmarksList() {
+    bookmarksList.innerHTML = '';
+    bookmarkedIndices = [];
+
+    // Filter and collect bookmarked items, keeping track of their original indices
+    wordsData.forEach((item, index) => {
+      if (item.isBookmarked) {
+        bookmarkedIndices.push(index);
+        
+        const li = document.createElement('li');
+        li.className = 'flex justify-between items-center p-3 border-b border-gray-200 cursor-pointer hover:bg-white/50 transition-colors';
+        li.setAttribute('data-index', index); // Original index of the word
+
+        const wordText = document.createElement('span');
+        wordText.textContent = item.word;
+        wordText.className = 'font-semibold text-main flex-grow truncate';
+        li.appendChild(wordText);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.innerHTML = '✕';
+        removeBtn.className = 'text-secondary hover:text-red-500 transition-colors ml-4 text-sm';
+        removeBtn.addEventListener('click', (e) => {
+          e.stopPropagation(); // Prevent li click
+          // Since we use the ORIGINAL index from data-index
+          const originalIdx = parseInt(li.getAttribute('data-index'), 10);
+          wordsData[originalIdx].isBookmarked = false;
+          saveBookmarksToStorage();
+          // Update main card if it's the one being unbookmarked
+          updateBookmarkIcon();
+          renderBookmarksList(); 
+        });
+        li.appendChild(removeBtn);
+
+        li.addEventListener('click', () => {
+          // Open the full screen bookmark overlay
+          openBookmarksOverlayAtIndex(bookmarkedIndices.indexOf(index));
+        });
+
+        bookmarksList.appendChild(li);
+      }
+    });
+
+    // Update the counter in the sidebar header
+    const countElement = document.getElementById('bookmark-count');
+    if (countElement) {
+        countElement.textContent = bookmarkedIndices.length;
+    }
   }
+
   function closeSidebar() {
     sidebar.classList.remove('open');
     overlay.classList.remove('show');
   }
 
-  menuBtn && menuBtn.addEventListener('click', openSidebar);
-  overlay && overlay.addEventListener('click', () => {
-    // overlay used to close sidebar or overlay - close sidebar only
-    closeSidebar();
-  });
-
-  // Bookmark overlay (full-screen) -----------------------------------------
-  function buildBookmarkList() {
-    bmList = wordsData.filter(w => w.isBookmarked);
-  }
-  function openBookmarksOverlayAtIndex(indexInBookmarks) {
-    buildBookmarkList();
-    if (!bmList || bmList.length === 0) return;
-    bmIndex = clampIndex(indexInBookmarks || 0, bmList.length);
-    lastIndexBeforeOverlay = currentIndex;
-    renderBookmarkCard();
-    // fade body background to overlay's tone for subtle transition
-    document.body.style.transition = 'background-color 0.4s ease';
-    document.body.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--bm-bg');
-    bmOverlay.classList.add('active'); // CSS shows it (index.html uses .active in assistant-provided HTML)
-    // ensure overlay can scroll vertically if content exceeds height
-    bmOverlay.style.overflowY = 'auto';
-    // set focus so arrow keys navigate overlay
-    bmOverlay.setAttribute('data-open', '1');
-  }
-  function closeBookmarksOverlay() {
-    bmOverlay.classList.remove('active');
-    // restore body bg to main deck
-    document.body.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--main-bg');
-    bmOverlay.removeAttribute('data-open');
-    // return to previous card (no change)
-    if (lastIndexBeforeOverlay !== null) {
-      // nothing to do: main card index unchanged. Keep previousIndex for clarity.
-      lastIndexBeforeOverlay = null;
-    }
-  }
+  // Fullscreen Bookmark Overlay --------------------------------------------
 
   function renderBookmarkCard() {
-    if (!bmList || bmList.length === 0) {
-      bmWordDisplay.textContent = '';
-      bmSentenceDisplay.textContent = '';
-      bmMeaningDisplay.textContent = '';
-      bmRootDisplay.textContent = '';
-      bmSynonymsDisplay.textContent = '';
-      bmCardCounter.textContent = `<0/0>`;
+    const item = getBookmarkWordItem(currentBookmarkIndex);
+    if (!item) {
+      closeBookmarksOverlay();
       return;
     }
-    const item = bmList[clampIndex(bmIndex, bmList.length)];
+
+    // Populate bookmark card
     bmWordDisplay.textContent = item.word;
-    try {
-  const regex = new RegExp(`\\b${item.word}\\b`, 'gi');
-  bmSentenceDisplay.innerHTML = item.sentence.replace(regex, (match) => {
-    return `<span class="highlight">${match}</span>`;
-  });
-} catch (e) { bmSentenceDisplay.innerHTML = item.sentence || ''; }    
+    bmSentenceDisplay.innerHTML = highlightWord(item.sentence || '');
     bmMeaningDisplay.textContent = item.english || '';
-    bmRootDisplay.textContent = item.root || '';
-    bmSynonymsDisplay.textContent = (item.synonyms || []).join(', ');
-    bmCardCounter.textContent = `<${bmIndex + 1}/${bmList.length}>`;
-    // update bookmark icon on overlay card if you plan to add toggle there later
+    bmRootDisplay.textContent = item.root || 'N/A';
+    bmSynonymsDisplay.textContent = (item.synonyms || []).join(', ') || 'N/A';
+
+    // Update counter
+    bmCounter.textContent = `<${currentBookmarkIndex + 1}/${bookmarkedIndices.length}>`;
+
+    // Update the remove button's original index
+    bmRemoveBtn.setAttribute('data-original-index', bookmarkedIndices[currentBookmarkIndex]);
   }
 
-  // Bookmark overlay close button
-  bmClose && bmClose.addEventListener('click', closeBookmarksOverlay);
+  function changeBookmarkCard(direction) {
+    if (bookmarkedIndices.length === 0 || isSwiping) return;
 
-  // Keyboard navigation
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowLeft' || e.key === 'Left') {
-      e.preventDefault();
-      if (bmOverlay.classList.contains('active')) {
-        navigateBookmarks('prev');
-      } else {
-        navigateMain('prev');
-      }
-    } else if (e.key === 'ArrowRight' || e.key === 'Right') {
-      e.preventDefault();
-      if (bmOverlay.classList.contains('active')) {
-        navigateBookmarks('next');
-      } else {
-        navigateMain('next');
-      }
+    currentBookmarkIndex += direction;
+    // Loop back to start/end
+    if (currentBookmarkIndex < 0) {
+      currentBookmarkIndex = bookmarkedIndices.length - 1;
+    } else if (currentBookmarkIndex >= bookmarkedIndices.length) {
+      currentBookmarkIndex = 0;
     }
-  });
+    renderBookmarkCard();
+  }
+  
+  function openBookmarksOverlayAtIndex(bmIndex) {
+    if (bookmarkedIndices.length === 0) return;
 
-  // Navigation functions with nice animation --------------------------------
-  function navigateMain(direction) {
-    if (!wordsData || wordsData.length === 0) return;
-    const len = wordsData.length;
-    const nextIndex = direction === 'next' ? clampIndex(currentIndex + 1, len) : clampIndex(currentIndex - 1, len);
-    
-    // Simple content update without complex animation
-    currentIndex = nextIndex;
-    renderCard();
+    closeSidebar();
+    currentBookmarkIndex = bmIndex;
+    renderBookmarkCard();
+    bmOverlay.classList.add('active');
   }
 
-  function navigateBookmarks(direction) {
-    if (!bmList || bmList.length === 0) return;
-    const nextBmIndex = direction === 'next' ? clampIndex(bmIndex + 1, bmList.length) : clampIndex(bmIndex - 1, bmList.length);
+  function closeBookmarksOverlay() {
+    bmOverlay.classList.remove('active');
+    // After closing, ensure the main card's bookmark icon is correct 
+    // in case a word was removed in the overlay
+    updateBookmarkIcon(); 
+    renderBookmarksList(); // Re-render sidebar in case words were removed
+  }
+
+  function removeBookmarkFromOverlay() {
+    const originalIdx = parseInt(bmRemoveBtn.getAttribute('data-original-index'), 10);
+    if (isNaN(originalIdx) || originalIdx < 0 || originalIdx >= wordsData.length) return;
+
+    wordsData[originalIdx].isBookmarked = false;
+    saveBookmarksToStorage();
     
-    // Simple content update
-    bmIndex = nextBmIndex;
+    // Check if the current word was the last one in the bookmark list
+    if (bookmarkedIndices.length <= 1) {
+      closeBookmarksOverlay();
+      return;
+    }
+
+    // Adjust the current index if the word removed was the last one in the list
+    if (currentBookmarkIndex >= bookmarkedIndices.length - 1) {
+      currentBookmarkIndex = bookmarkedIndices.length - 2;
+    }
+
+    // Re-render the list and then the card to ensure the index is correct
+    renderBookmarksList(); 
     renderBookmarkCard();
   }
 
-  // Simple swipe handlers
-  function attachSimpleSwipe(element, onSwipeLeft, onSwipeRight) {
-    let startX = 0;
-    let currentX = 0;
-    let isSwiping = false;
+  // Card Swipe Handlers ----------------------------------------------------
 
-    // Touch events
-    element.addEventListener('touchstart', (e) => {
-      if (e.touches.length !== 1) return;
-      startX = e.touches[0].clientX;
-      currentX = startX;
-      isSwiping = true;
-      element.style.transition = 'none';
-    }, { passive: true });
-
-    element.addEventListener('touchmove', (e) => {
-      if (!isSwiping) return;
-      currentX = e.touches[0].clientX;
-      const diff = currentX - startX;
-      
-      // Only move horizontally, prevent vertical scrolling during horizontal swipe
-      if (Math.abs(diff) > 10) {
-        e.preventDefault();
-      }
-      
-      element.style.transform = `translateX(${diff}px)`;
-    }, { passive: false });
-
-    element.addEventListener('touchend', () => {
-      if (!isSwiping) return;
+  function resetCardPosition(el, duration = ANIM_MS) {
+    el.style.transition = `transform ${duration}ms ease-out`;
+    el.style.transform = `translateX(0) translateY(0) rotate(0deg)`;
+    setTimeout(() => {
+      el.style.transition = '';
       isSwiping = false;
-
-      const diff = currentX - startX;
-      const threshold = 40; // Reduced threshold for better mobile feel
-
-      if (diff < -threshold) {
-        // Swipe left - next
-        element.style.transition = `transform ${ANIM_MS}ms ease-out`;
-        element.style.transform = `translateX(-100%)`;
-        setTimeout(() => {
-          onSwipeLeft();
-          // Reset position after navigation
-          element.style.transition = 'none';
-          element.style.transform = 'translateX(0)';
-        }, ANIM_MS);
-      } else if (diff > threshold) {
-        // Swipe right - prev
-        element.style.transition = `transform ${ANIM_MS}ms ease-out`;
-        element.style.transform = `translateX(100%)`;
-        setTimeout(() => {
-          onSwipeRight();
-          // Reset position after navigation
-          element.style.transition = 'none';
-          element.style.transform = 'translateX(0)';
-        }, ANIM_MS);
-      } else {
-        // Return to center
-        element.style.transition = `transform ${ANIM_MS}ms ease-out`;
-        element.style.transform = 'translateX(0)';
-      }
-    }, { passive: true });
+    }, duration);
   }
 
-  // Mouse events for desktop
-  function attachMouseSwipe(element, onSwipeLeft, onSwipeRight) {
-    let startX = 0;
-    let currentX = 0;
-    let isDragging = false;
+  function animateCardOut(el, direction) {
+    isSwiping = true;
+    const screenWidth = window.innerWidth;
+    const finalX = direction === 1 ? screenWidth : -screenWidth;
+    const rotation = direction === 1 ? 15 : -15;
 
-    element.addEventListener('mousedown', (e) => {
-      startX = e.clientX;
-      currentX = startX;
-      isDragging = true;
-      element.style.transition = 'none';
+    el.style.transition = `transform ${ANIM_MS}ms ease-in`;
+    el.style.transform = `translateX(${finalX * 1.5}px) rotate(${rotation}deg)`;
+
+    setTimeout(() => {
+      resetCardPosition(el, 0); // Immediately reset position, but keep transition off
+      changeCard(direction);
+    }, ANIM_MS);
+  }
+
+  function attachSimpleSwipe(el, swipeFn) {
+    el.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        e.preventDefault(); // Prevent page scroll on touch start
+        isSwiping = true;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        initialX = el.getBoundingClientRect().left;
+        el.style.transition = 'none';
+      }
+    }, { passive: false });
+
+    el.addEventListener('touchmove', (e) => {
+      if (!isSwiping || e.touches.length !== 1) return;
+      e.preventDefault(); // Prevent page scroll while swiping
+
+      const currentX = e.touches[0].clientX;
+      const deltaX = currentX - startX;
+      const deltaY = e.touches[0].clientY - startY;
+
+      // To prevent accidental vertical scrolling from triggering horizontal swipe
+      if (Math.abs(deltaX) > Math.abs(deltaY) * 0.5) {
+        const rotation = deltaX * 0.05;
+        el.style.transform = `translateX(${deltaX}px) rotate(${rotation}deg)`;
+      } else {
+        // If movement is mostly vertical, stop dragging horizontally
+        isSwiping = false; 
+        resetCardPosition(el);
+      }
+    }, { passive: false });
+
+    el.addEventListener('touchend', () => {
+      if (!isSwiping) return;
+      
+      const currentX = el.getBoundingClientRect().left;
+      const deltaX = currentX - initialX;
+
+      if (Math.abs(deltaX) > SWIPE_THRESHOLD) {
+        // Swipe detected
+        const direction = deltaX > 0 ? 1 : -1;
+        animateCardOut(el, direction);
+      } else {
+        // Snap back
+        resetCardPosition(el);
+      }
+      isSwiping = false;
+    });
+  }
+
+  function attachMouseSwipe(el, swipeFn) {
+    let isMouseDown = false;
+    let mouseDownX = 0;
+    let initialLeft = 0;
+
+    el.addEventListener('mousedown', (e) => {
+      isMouseDown = true;
+      e.preventDefault();
+      mouseDownX = e.clientX;
+      initialLeft = el.getBoundingClientRect().left;
+      el.style.transition = 'none';
+      isSwiping = true;
     });
 
     document.addEventListener('mousemove', (e) => {
-      if (!isDragging) return;
-      currentX = e.clientX;
-      const diff = currentX - startX;
-      element.style.transform = `translateX(${diff}px)`;
+      if (!isMouseDown) return;
+      e.preventDefault();
+
+      const deltaX = e.clientX - mouseDownX;
+      const rotation = deltaX * 0.05;
+      el.style.transform = `translateX(${deltaX}px) rotate(${rotation}deg)`;
     });
 
     document.addEventListener('mouseup', () => {
-      if (!isDragging) return;
-      isDragging = false;
+      if (!isMouseDown) return;
+      isMouseDown = false;
 
-      const diff = currentX - startX;
-      const threshold = 60;
+      const currentLeft = el.getBoundingClientRect().left;
+      const deltaX = currentLeft - initialLeft;
 
-      if (diff < -threshold) {
-        element.style.transition = `transform ${ANIM_MS}ms ease-out`;
-        element.style.transform = `translateX(-100%)`;
-        setTimeout(() => {
-          onSwipeLeft();
-          element.style.transition = 'none';
-          element.style.transform = 'translateX(0)';
-        }, ANIM_MS);
-      } else if (diff > threshold) {
-        element.style.transition = `transform ${ANIM_MS}ms ease-out`;
-        element.style.transform = `translateX(100%)`;
-        setTimeout(() => {
-          onSwipeRight();
-          element.style.transition = 'none';
-          element.style.transform = 'translateX(0)';
-        }, ANIM_MS);
+      if (Math.abs(deltaX) > SWIPE_THRESHOLD) {
+        const direction = deltaX > 0 ? 1 : -1;
+        animateCardOut(el, direction);
       } else {
-        element.style.transition = `transform ${ANIM_MS}ms ease-out`;
-        element.style.transform = 'translateX(0)';
+        resetCardPosition(el);
       }
+      isSwiping = false;
     });
   }
-
-  // Attach swipe handlers to main card and bookmark card
-  attachSimpleSwipe(card, () => navigateMain('next'), () => navigateMain('prev'));
-  attachSimpleSwipe(bmCard, () => navigateBookmarks('next'), () => navigateBookmarks('prev'));
-
-  // Also attach mouse events for desktop
-  attachMouseSwipe(card, () => navigateMain('next'), () => navigateMain('prev'));
-  attachMouseSwipe(bmCard, () => navigateBookmarks('next'), () => navigateBookmarks('prev'));
-
-  // Hook up bookmark button
-  bookmarkBtn && bookmarkBtn.addEventListener('click', () => {
-    toggleBookmark();
-    // refresh bookmark overlay list if it's open
-    if (bmOverlay.classList.contains('active')) {
-      buildBookmarkList();
-      renderBookmarkCard();
-      renderBookmarksList();
-    }
-  });
-
-  // Initial "swipe hint" nudge (only once)
+  
+  // Initial Nudge Hint (Subtle visual feedback)
   function initialNudge() {
-    try {
-      if (localStorage.getItem('seenHint') === '1') return;
-      // small left nudge and back
-      card.style.transition = `transform 400ms ease-out`;
-      card.style.transform = 'translateX(-12px)';
+    if (currentIndex === 0 && wordsData.length > 1) {
+      card.style.transition = `transform ${ANIM_MS * 2}ms ease-out`;
+      card.style.transform = `translateX(${NUDGE_DISTANCE}px) rotate(3deg)`;
       setTimeout(() => {
-        card.style.transform = 'translateX(0)';
-        localStorage.setItem('seenHint', '1');
-      }, 420);
-    } catch (e) { /* ignore */ }
+        resetCardPosition(card, ANIM_MS * 2);
+      }, ANIM_MS * 2);
+    }
   }
 
   // Load words.json and initialize -----------------------------------------
@@ -451,44 +482,82 @@
     try {
       const resp = await fetch('words.json');
       const data = await resp.json();
-      // ensure isBookmarked exists
+      
+      // 1. Convert to full wordsData array
       wordsData = data.map(d => Object.assign({}, d, { isBookmarked: !!d.isBookmarked }));
-      // load bookmark map and last index if present
+      
+      // 2. Load/Create Shuffled Indices
+      if (!loadShuffledOrder()) {
+        // First load or storage was cleared: Create new shuffled order
+        shuffledIndices = wordsData.map((_, index) => index); // [0, 1, 2, ...]
+        shuffle(shuffledIndices); // Shuffle the indices
+        saveShuffledOrder();
+      }
+      
+      // 3. Load state from storage (bookmarks must load after wordsData is set)
       loadBookmarksFromStorage();
-      loadLastIndex();
+      loadLastIndex(); 
+
+      // 4. Initial render
       renderCard();
       renderBookmarksList();
       initialNudge();
+
     } catch (err) {
       console.error('Could not load words.json', err);
+      wordDisplay.textContent = "Error loading vocabulary data.";
     }
   }
 
-  // init
-  loadWords();
+  // Event Listeners --------------------------------------------------------
 
-  // Make sure main card doesn't cause page scrolling on mobile:
-  document.addEventListener('touchmove', (e) => {
-    // do nothing here — touchmove handlers on card preventDefault when horizontal.
-    // we keep this listener passive to avoid interfering.
-  }, {passive: true});
+  // Main Card Swipe and Nav
+  attachSimpleSwipe(card, changeCard);
+  attachMouseSwipe(card, changeCard);
 
-  // Small niceties: clicking bookmark item in sidebar will open overlay at that bookmark (handled in renderBookmarksList)
-  // clicking outside the overlay's close or the overlay's close button closes it:
+  // Bookmark toggling
+  bookmarkBtn.addEventListener('click', toggleBookmark);
+
+  // Menu/Sidebar
+  menuBtn.addEventListener('click', () => {
+    sidebar.classList.add('open');
+    overlay.classList.add('show');
+  });
+
+  // Sidebar close (overlay click or the overlay's close button closes it)
   overlay.addEventListener('click', () => {
     // only closes sidebar overlay — bookmark overlay has separate close button
     closeSidebar();
   });
 
-  // Expose a debug function (optional)
-  window.__vocabDebug = {
-    getWords: () => wordsData,
-    getCurrentIndex: () => currentIndex,
-    openBookmarksOverlayAtIndex,
-    closeBookmarksOverlay
-  };
+  // Bookmark Overlay Close
+  bmCloseBtn.addEventListener('click', closeBookmarksOverlay);
+  
+  // Bookmark Overlay Remove Button
+  bmRemoveBtn.addEventListener('click', removeBookmarkFromOverlay);
 
-  // Ensure the bookmark overlay has keyboard close via Escape
+  // Bookmark Overlay Swipe and Nav
+  attachSimpleSwipe(bmCard, changeBookmarkCard);
+  attachMouseSwipe(bmCard, changeBookmarkCard);
+
+  // Keyboard Navigation
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight') {
+        if (bmOverlay.classList.contains('active')) {
+            changeBookmarkCard(1);
+        } else {
+            changeCard(1);
+        }
+    } else if (e.key === 'ArrowLeft') {
+        if (bmOverlay.classList.contains('active')) {
+            changeBookmarkCard(-1);
+        } else {
+            changeCard(-1);
+        }
+    }
+  });
+
+  // Escape key closes overlays
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       if (bmOverlay.classList.contains('active')) {
@@ -499,12 +568,21 @@
     }
   });
 
-  // Ensure bookmark overlay closes on background click (optional but convenient)
+  // Bookmark overlay closes on background click
   bmOverlay.addEventListener('click', (ev) => {
-    // only close if user clicked the background area (not the card)
-    // detect if the click target is the overlay itself (or the header area outside card)
     if (ev.target === bmOverlay) closeBookmarksOverlay();
   });
+
+  // Initial load
+  window.addEventListener('load', loadWords);
+
+  // Expose a debug function (optional)
+  window.__vocabDebug = {
+    getWords: () => wordsData,
+    getCurrentIndex: () => currentIndex,
+    openBookmarksOverlayAtIndex,
+    closeBookmarksOverlay
+  };
 
   // Register service worker for PWA
   if ('serviceWorker' in navigator) {
