@@ -1,6 +1,6 @@
 # GRE 300+ Vocab
 
-A progressive web app for learning GRE vocabulary with 300+ words, definitions, and examples.
+A progressive web app for learning GRE vocabulary with 300+ words, definitions, and examples. MADE WITH AI.
 
 ## Features
 
